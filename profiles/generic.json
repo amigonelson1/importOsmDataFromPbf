@@ -1,0 +1,61 @@
+{
+  "name": "generic",
+  "description": "Perfil estándar neutro con tablas en snake_case (PostgreSQL, MySQL o SQL Server)",
+  "build": {
+    "bufferMeters": 20000,
+    "legacyBuffer": false,
+    "highways": [
+      "motorway", "trunk", "primary", "secondary", "tertiary",
+      "residential", "unclassified", "service", "track"
+    ],
+    "splitWaysAt3857": 100000,
+    "segmentizeMeters": 50,
+    "segmentizeMethod": "bisect",
+    "minSegmentMeters": 1,
+    "snapDegrees": 0.00001,
+    "reverseOnewayMinusOne": true,
+    "excludeAreas": true
+  },
+  "publish": {
+    "provider": "postgres",
+    "schema": "public",
+    "nodes": {
+      "table": "road_nodes",
+      "id": "id",
+      "location": "location",
+      "valence": "valence",
+      "createdAt": "created_at"
+    },
+    "segments": {
+      "table": "road_segments",
+      "id": "id",
+      "osmId": "osm_id",
+      "name": "name",
+      "highwayType": "highway_type",
+      "isOneWay": "is_one_way",
+      "lanes": "lanes",
+      "maxSpeed": "max_speed",
+      "surface": "surface",
+      "smoothness": "smoothness",
+      "trackType": "tracktype",
+      "bridge": "bridge",
+      "tunnel": "tunnel",
+      "layer": "layer",
+      "maxWeight": "max_weight",
+      "maxHeight": "max_height",
+      "maxWidth": "max_width",
+      "geometry": "geometry",
+      "lengthMeters": "length_meters",
+      "travelCost": "travel_cost",
+      "fromNodeId": "from_node_id",
+      "toNodeId": "to_node_id",
+      "createdAt": "created_at"
+    },
+    "maxRetiredPercent": 20,
+    "foreignKeyDefaults": {
+      "onRetired": "remapNearest",
+      "maxDistanceMeters": 30,
+      "fallback": "report"
+    }
+  }
+}

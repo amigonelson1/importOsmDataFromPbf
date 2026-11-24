@@ -1,0 +1,58 @@
+{
+  // Igual que sherpaslb.json pero publicando en la variante MySQL de SherpaSlb (Routing.Infrastructure.MySql).
+  "name": "sherpaslb-mysql",
+  "description": "Red vial de referencia para SherpaSlb (MySQL) — Neuquén / Mendoza",
+  "build": {
+    "bbox": { "minLon": -69.419662, "minLat": -38.988540, "maxLon": -67.716560, "maxLat": -33.070484 },
+    "bufferMeters": 20000,
+    "legacyBuffer": false,
+    "highways": [
+      "motorway", "trunk", "primary", "secondary", "tertiary",
+      "residential", "unclassified", "service", "track"
+    ],
+    "splitWaysAt3857": 100000,
+    "segmentizeMeters": 50,
+    "segmentizeMethod": "bisect",
+    "minSegmentMeters": 1,
+    "snapDegrees": 0.00001,
+    "reverseOnewayMinusOne": true,
+    "excludeAreas": true,
+    "costFactors": {
+      "motorway": 0.7, "trunk": 0.7,
+      "primary": 1.0, "secondary": 1.0,
+      "tertiary": 1.4, "residential": 1.4
+    },
+    "defaultCostFactor": 2.0
+  },
+  "publish": {
+    "provider": "mysql",
+    // null = la base de datos de la cadena de conexión
+    "schema": null,
+    "nodes": {
+      "table": "ReferenceRoadNodes",
+      "id": "Id", "location": "Location", "valence": "Valence", "createdAt": "CreatedAt"
+    },
+    "segments": {
+      "table": "ReferenceRoadSegments",
+      "id": "Id", "osmId": "OsmId", "name": "Name", "highwayType": "HighwayType", "isOneWay": "IsOneWay",
+      "lanes": "Lanes", "maxSpeed": "MaxSpeed", "geometry": "Geometry", "lengthMeters": "LengthMeters",
+      "travelCost": "TravelCost", "fromNodeId": "FromNodeId", "toNodeId": "ToNodeId", "createdAt": "CreatedAt",
+      "surface": "Surface", "smoothness": "Smoothness", "trackType": "TrackType",
+      "bridge": "Bridge", "tunnel": "Tunnel", "layer": "Layer",
+      "maxWeight": "MaxWeight", "maxHeight": "MaxHeight", "maxWidth": "MaxWidth",
+      // columnas generadas por MySQL (solo se usan al crear tablas; nunca se escriben)
+      "startPoint": "StartPoint", "endPoint": "EndPoint"
+    },
+    "maxRetiredPercent": 20,
+    "foreignKeyDefaults": { "onRetired": "remapNearest", "maxDistanceMeters": 30, "fallback": "report" },
+    "dependencies": [
+      {
+        "table": "RouteBlockingPoints", "column": "EdgeId", "references": "segments",
+        // sintaxis MySQL (backticks)
+        "filter": "`NetworkType` = 2",
+        "description": "Alertas/bloqueos sobre la red OSM (NetworkType.Osm = 2): EdgeId = ReferenceRoadSegments.Id como texto",
+        "onRetired": "remapNearest", "maxDistanceMeters": 25, "fallback": "report"
+      }
+    ]
+  }
+}
