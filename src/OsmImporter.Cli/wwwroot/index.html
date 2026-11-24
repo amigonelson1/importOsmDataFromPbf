@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>osmimport — Visor y Gestor de Red Vial</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 500: '#10b981', 600: '#059669' }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- MapLibre GL -->
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+  <style>
+    /* Estilos personalizados para controles y popups de MapLibre */
+    .maplibregl-popup-content {
+      background: #0f172a !important;
+      color: #f8fafc !important;
+      border: 1px solid #334155;
+      border-radius: 0.75rem !important;
+      padding: 1rem !important;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
+    }
+    .maplibregl-popup-anchor-top .maplibregl-popup-tip { border-bottom-color: #0f172a !important; }
+    .maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color: #0f172a !important; }
+    .maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: #0f172a !important; }
+    .maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: #0f172a !important; }
+    .maplibregl-popup-close-button {
+      color: #94a3b8;
+      font-size: 1.25rem;
+      padding: 0.25rem 0.5rem;
+    }
+    .maplibregl-popup-close-button:hover { color: #fff; }
+    
+    /* Scrollbar estilizado */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+  </style>
+</head>
+<body class="h-full flex flex-col overflow-hidden select-none font-sans">
+
+  <!-- Top Navbar -->
+  <header class="h-14 bg-slate-900/90 backdrop-blur border-b border-slate-800 flex items-center justify-between px-4 z-20 flex-shrink-0">
+    <div class="flex items-center gap-3">
+      <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold text-lg">
+        🛣️
+      </div>
+      <div>
+        <h1 class="font-bold text-sm tracking-wide text-white">osmimport <span class="text-xs font-normal text-emerald-400 bg-emerald-950/70 border border-emerald-800/50 px-2 py-0.5 rounded-full ml-1">Studio</span></h1>
+      </div>
+
+      <!-- Selector de GeoPackage -->
+      <div class="ml-4 flex items-center gap-2">
+        <label for="gpkgSelect" class="text-xs text-slate-400 font-medium">Red:</label>
+        <select id="gpkgSelect" class="bg-slate-800 text-slate-200 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 max-w-xs truncate">
+          <option value="">Cargando archivos...</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Quick KPIs & Actions -->
+    <div class="flex items-center gap-2.5">
+      <!-- Indicador de carga -->
+      <div id="loadingIndicator" class="hidden items-center gap-2 text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2.5 py-1 rounded-full animate-pulse">
+        <svg class="animate-spin h-3.5 w-3.5 text-emerald-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span>Actualizando mapa...</span>
+      </div>
+
+      <!-- Badges de estadísticas rápidas -->
+      <div class="hidden sm:flex items-center gap-2 text-xs">
+        <div class="bg-slate-800/80 border border-slate-700/60 rounded-md px-2 py-1">
+          <span class="text-slate-400">Total:</span>
+          <span id="badgeTotalKm" class="font-semibold text-slate-100 ml-1">-- km</span>
+        </div>
+        <div class="bg-slate-800/80 border border-slate-700/60 rounded-md px-2 py-1">
+          <span class="text-slate-400">Segmentos:</span>
+          <span id="badgeSegments" class="font-semibold text-slate-100 ml-1">--</span>
+        </div>
+        <div class="bg-slate-800/80 border border-slate-700/60 rounded-md px-2 py-1">
+          <span class="text-slate-400">Nodos:</span>
+          <span id="badgeNodes" class="font-semibold text-slate-100 ml-1">--</span>
+        </div>
+      </div>
+
+      <!-- Botón Descargar & Build -->
+      <button id="btnOpenBuildTab" title="Buscar y descargar regiones o construir nueva red" class="bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 shadow-sm">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        <span>Descarga & Build</span>
+      </button>
+
+      <!-- Botón centrar en datos -->
+      <button id="btnFitBounds" title="Centrar mapa en la extensión de la red" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+        </svg>
+        <span>Centrar</span>
+      </button>
+
+      <!-- Toggle rápido Satelital -->
+      <button id="btnQuickSatellite" title="Alternar entre mapa vectorial y satelital" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+        <span>🛰️</span>
+        <span id="quickSatelliteLabel">Satelital</span>
+      </button>
+
+      <!-- Toggle Panel Lateral -->
+      <button id="btnToggleSidebar" title="Mostrar/ocultar panel" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        <span>Panel</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Viewport -->
+  <div class="relative flex-1 w-full h-full overflow-hidden">
+    <!-- Map Container -->
+    <div id="map" class="w-full h-full bg-slate-900"></div>
+
+    <!-- Floating Lateral Drawer (Dashboard & Filtros) -->
+    <aside id="sidebar" class="absolute top-4 left-4 w-[430px] max-h-[calc(100%-2rem)] bg-slate-900/95 backdrop-blur-md border border-slate-800 rounded-xl shadow-2xl flex flex-col z-10 transition-all duration-300">
+      
+      <!-- Tabs Navigation -->
+      <div class="flex border-b border-slate-800 px-2 pt-2.5 gap-1 overflow-x-auto">
+        <button data-tab="metrics" class="tab-btn active text-xs font-semibold px-2.5 py-2 rounded-t-lg border-b-2 border-emerald-500 text-emerald-400 bg-slate-800/50 flex-shrink-0">
+          Métricas
+        </button>
+        <button data-tab="build" id="tabBuildBtn" class="tab-btn text-xs font-medium px-2.5 py-2 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex-shrink-0 flex items-center gap-1">
+          <span>📥 Descarga & Build</span>
+        </button>
+        <button data-tab="layers" class="tab-btn text-xs font-medium px-2.5 py-2 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex-shrink-0">
+          Capas
+        </button>
+        <button data-tab="parity" id="tabParityBtn" class="tab-btn hidden text-xs font-medium px-2.5 py-2 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex-shrink-0">
+          Paridad
+        </button>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+        
+        <!-- Tab: Descarga & Build (NUEVO) -->
+        <div id="tabBuild" class="tab-pane hidden space-y-4">
+          
+          <!-- Banner de ubicación real de descargas -->
+          <div class="bg-slate-900/90 border border-slate-700/60 rounded-lg p-2.5 text-[11px] space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-300 font-semibold flex items-center gap-1">
+                <span>📁</span> Carpeta de descargas PBF:
+              </span>
+              <button id="btnOpenDownloadsFolder" class="bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 px-2 py-0.5 rounded text-[10px] font-medium transition flex items-center gap-1">
+                <span>📂 Abrir en Windows</span>
+              </button>
+            </div>
+            <div class="font-mono text-slate-300 text-[10px] truncate select-all bg-slate-950 p-1.5 rounded border border-slate-800" id="downloadsPathDisplay">
+              D:\Desarrollos\importOsmDataFromPbf\downloads
+            </div>
+            <p class="text-[10px] text-slate-400">
+              💡 Los archivos se descargan en la carpeta interna del proyecto (<code class="text-indigo-300 font-mono">downloads\</code>), no en tu carpeta personal de Windows.
+            </p>
+          </div>
+
+          <!-- Sección 1: Geofabrik Búsqueda y Descarga -->
+          <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl p-3 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold text-slate-200 text-xs flex items-center gap-1.5">
+                <span>🌍</span> 1. Buscar y Descargar de Geofabrik
+              </h3>
+              <span class="text-[10px] text-slate-400 font-mono">PBF oficial</span>
+            </div>
+
+            <!-- Input de búsqueda -->
+            <div class="flex gap-1.5">
+              <input type="text" id="regionSearchInput" placeholder="Ej. argentina, chile, colombia, madrid..." class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+              <button id="btnSearchRegions" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-3 py-1.5 rounded-lg text-xs transition">
+                Buscar
+              </button>
+            </div>
+
+            <!-- Lista de resultados de Geofabrik -->
+            <div id="regionSearchResults" class="space-y-1.5 max-h-36 overflow-y-auto hidden border-t border-slate-700/50 pt-2">
+              <p class="text-slate-400 text-[11px]">Escribe un país o región para buscar...</p>
+            </div>
+
+            <!-- Archivos ya descargados localmente -->
+            <div class="pt-2 border-t border-slate-700/50 space-y-1.5">
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="text-slate-400 font-medium">Archivos .pbf detectados:</span>
+                <button id="btnRefreshDownloads" class="text-indigo-400 hover:underline text-[10px]">Actualizar</button>
+              </div>
+              <div id="localPbfList" class="space-y-1 max-h-32 overflow-y-auto">
+                <p class="text-slate-500 text-[11px]">No hay archivos .pbf descargados</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sección 2: Ajustes de Construcción (Build) -->
+          <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl p-3 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold text-slate-200 text-xs flex items-center gap-1.5">
+                <span>⚙️</span> 2. Configurar Construcción de Red (Build)
+              </h3>
+            </div>
+
+            <!-- PBF Seleccionado -->
+            <div>
+              <label class="block text-[11px] text-slate-400 font-medium mb-1">Archivo .pbf a procesar:</label>
+              <input type="text" id="buildPbfInput" placeholder="Selecciona un archivo descargado arriba o escribe su ruta" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono" />
+            </div>
+
+            <!-- Perfil JSON -->
+            <div>
+              <label class="block text-[11px] text-slate-400 font-medium mb-1">Perfil de destino:</label>
+              <select id="buildProfileSelect" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                <option value="">Cargando perfiles...</option>
+              </select>
+              <span id="profileDescription" class="text-[10px] text-slate-400 block mt-1 italic"></span>
+            </div>
+
+            <!-- Bounding Box (Área Operativa) -->
+            <div class="space-y-1.5 pt-1 border-t border-slate-700/40">
+              <div class="flex items-center justify-between">
+                <label class="text-[11px] text-slate-400 font-medium">Área Operativa (Bounding Box):</label>
+                <button type="button" id="btnCaptureBbox" class="text-emerald-400 hover:text-emerald-300 font-medium text-[10px] flex items-center gap-1 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded">
+                  <span>🎯 Capturar del mapa</span>
+                </button>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-[11px]">
+                <div>
+                  <span class="text-slate-500 text-[10px] block">Min Lon (Oeste):</span>
+                  <input type="number" step="0.0001" id="bboxMinLon" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                </div>
+                <div>
+                  <span class="text-slate-500 text-[10px] block">Min Lat (Sur):</span>
+                  <input type="number" step="0.0001" id="bboxMinLat" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                </div>
+                <div>
+                  <span class="text-slate-500 text-[10px] block">Max Lon (Este):</span>
+                  <input type="number" step="0.0001" id="bboxMaxLon" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                </div>
+                <div>
+                  <span class="text-slate-500 text-[10px] block">Max Lat (Norte):</span>
+                  <input type="number" step="0.0001" id="bboxMaxLat" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Parámetros adicionales -->
+            <div class="grid grid-cols-2 gap-2 text-[11px]">
+              <div>
+                <label class="text-slate-500 text-[10px] block">Buffer adicional (m):</label>
+                <input type="number" id="buildBufferMeters" value="20000" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white" />
+              </div>
+              <div>
+                <label class="text-slate-500 text-[10px] block">Nombre de salida:</label>
+                <input type="text" id="buildOutName" placeholder="Auto (.gpkg)" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white" />
+              </div>
+            </div>
+
+            <!-- Botón de Ejecutar Build -->
+            <button id="btnStartBuild" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-3 rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow-md">
+              <span>🚀 Iniciar Construcción de Red (Build)</span>
+            </button>
+          </div>
+
+          <!-- Consola de logs en vivo -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-semibold text-slate-300 text-[11px] uppercase tracking-wider flex items-center gap-1">
+                <span>🖥️</span> Consola de Ejecución en Vivo
+              </span>
+              <button id="btnClearLogs" class="text-[10px] text-slate-500 hover:text-slate-300">Limpiar</button>
+            </div>
+            <div id="liveConsole" class="bg-black/80 font-mono text-[10px] p-2.5 rounded-lg border border-slate-800 text-slate-300 h-36 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+              <span class="text-slate-600">// Los logs de descargas y builds aparecerán aquí...</span>
+            </div>
+          </div>
+
+        </div>
+        
+        <!-- Tab 1: Métricas -->
+        <div id="tabMetrics" class="tab-pane space-y-4">
+          <!-- Tarjetas Resumen -->
+          <div class="grid grid-cols-2 gap-2">
+            <div class="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/50">
+              <span class="text-slate-400 text-[11px] block">Longitud Vial</span>
+              <span id="metricKm" class="text-base font-bold text-white mt-0.5 block">--</span>
+            </div>
+            <div class="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/50">
+              <span class="text-slate-400 text-[11px] block">Segmentos</span>
+              <span id="metricSegments" class="text-base font-bold text-white mt-0.5 block">--</span>
+            </div>
+            <div class="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/50">
+              <span class="text-slate-400 text-[11px] block">Nodos Conexión</span>
+              <span id="metricNodes" class="text-base font-bold text-white mt-0.5 block">--</span>
+            </div>
+            <div class="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/50">
+              <span class="text-slate-400 text-[11px] block">Componentes</span>
+              <span id="metricComponents" class="text-base font-bold text-white mt-0.5 block">--</span>
+            </div>
+          </div>
+
+          <!-- Desglose por Highway -->
+          <div class="space-y-2">
+            <h3 class="font-semibold text-slate-300 text-xs uppercase tracking-wider">Distribución por Tipo de Vía</h3>
+            <div id="highwayBreakdown" class="space-y-1.5">
+              <p class="text-slate-500">Cargando desglose...</p>
+            </div>
+          </div>
+
+          <!-- Tiempos de Build -->
+          <div id="timingsBox" class="bg-slate-800/40 p-3 rounded-lg border border-slate-800 space-y-1 hidden">
+            <h4 class="font-medium text-slate-300">Tiempos de Procesamiento</h4>
+            <div id="timingsList" class="grid grid-cols-2 gap-y-1 text-slate-400"></div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Capas & Filtros -->
+        <div id="tabLayers" class="tab-pane hidden space-y-4">
+          <div class="space-y-2">
+            <h3 class="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">Tipo de Vía Visible</h3>
+            <div class="space-y-1.5" id="highwayCheckboxes">
+              <!-- Se generan dinámicamente -->
+            </div>
+          </div>
+
+          <hr class="border-slate-800" />
+
+          <div class="space-y-2">
+            <h3 class="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">Elementos Adicionales</h3>
+            <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+              <input type="checkbox" id="chkShowNodes" class="rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-0" />
+              <span>Mostrar Nodos de Conexión (zoom ≥ 14)</span>
+            </label>
+          </div>
+
+          <hr class="border-slate-800" />
+
+          <div class="space-y-2">
+            <h3 class="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">Estilo de Mapa Base</h3>
+            <div class="grid grid-cols-2 gap-2" id="basemapSelectors">
+              <button data-basemap="dark" class="basemap-btn active bg-slate-800 border border-emerald-500 text-emerald-400 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
+                <span class="font-medium block text-xs">🌙 Oscuro</span>
+                <span class="text-[10px] text-slate-400">CartoDB Dark</span>
+              </button>
+              <button data-basemap="positron" class="basemap-btn bg-slate-800/50 border border-slate-700 text-slate-300 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
+                <span class="font-medium block text-xs">☀️ Claro</span>
+                <span class="text-[10px] text-slate-400">CartoDB Positron</span>
+              </button>
+              <button data-basemap="satellite" class="basemap-btn bg-slate-800/50 border border-slate-700 text-slate-300 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
+                <span class="font-medium block text-xs">🛰️ Satelital</span>
+                <span class="text-[10px] text-slate-400">Esri World Imagery</span>
+              </button>
+              <button data-basemap="hybrid" class="basemap-btn bg-slate-800/50 border border-slate-700 text-slate-300 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
+                <span class="font-medium block text-xs">🌍 Híbrido</span>
+                <span class="text-[10px] text-slate-400">Satélite + Etiquetas</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Paridad / Diff -->
+        <div id="tabParity" class="tab-pane hidden space-y-3">
+          <div id="parityContent" class="space-y-2">
+            <p class="text-slate-400">No hay reporte de paridad para este archivo.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Leyenda de colores rápida en el pie del panel -->
+      <div class="p-3 bg-slate-950/60 border-t border-slate-800 flex flex-wrap gap-2 text-[10px] text-slate-400">
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span> Autopista</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span> Primaria</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> Secundaria</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span> Terciaria</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span> Residencial</span>
+      </div>
+
+    </aside>
+
+    <!-- Zoom & Coords Helper -->
+    <div class="absolute bottom-4 right-4 bg-slate-900/80 backdrop-blur border border-slate-800 rounded-lg px-2.5 py-1 text-[11px] text-slate-400 z-10 flex items-center gap-2">
+      <span id="zoomDisplay">Zoom: --</span>
+      <span>•</span>
+      <span id="coordsDisplay">Lon, Lat</span>
+    </div>
+  </div>
+
+  <!-- MODAL / OVERLAY DE BLOQUEO TOTAL DURANTE DESCARGAS O BUILD -->
+  <div id="busyOverlay" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4 text-center">
+      <!-- Animated Icon -->
+      <div id="busyIconContainer" class="w-16 h-16 mx-auto rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-3xl animate-bounce">
+        <span id="busyIcon">⏳</span>
+      </div>
+      <div>
+        <h3 id="busyTitle" class="text-base font-bold text-white">Operación en curso</h3>
+        <p id="busySubtitle" class="text-xs text-slate-400 mt-1">Por favor espera mientras finaliza el proceso...</p>
+      </div>
+
+      <!-- Barra animada -->
+      <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden relative">
+        <div id="busyProgressBar" class="bg-indigo-500 h-2 rounded-full w-full animate-pulse"></div>
+      </div>
+
+      <!-- Logs en vivo dentro del modal -->
+      <div class="bg-black/85 rounded-lg p-3 border border-slate-800 text-left font-mono text-[10px] text-slate-300 h-36 overflow-y-auto whitespace-pre-wrap leading-relaxed" id="busyConsole">
+        <span class="text-slate-600">// Conectando con el proceso...</span>
+      </div>
+
+      <div class="text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
+        <svg class="animate-spin h-3.5 w-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span>Interfaz bloqueada para proteger la integridad de los datos</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Configuración de capas y estilos de colores
+    const HIGHWAY_COLORS = {
+      'motorway': '#f97316',
+      'motorway_link': '#fb923c',
+      'trunk': '#ef4444',
+      'trunk_link': '#f87171',
+      'primary': '#eab308',
+      'primary_link': '#facc15',
+      'secondary': '#10b981',
+      'secondary_link': '#34d399',
+      'tertiary': '#06b6d4',
+      'tertiary_link': '#22d3ee',
+      'residential': '#94a3b8',
+      'service': '#a855f7',
+      'track': '#78716c',
+      'unclassified': '#64748b'
+    };
+
+    const BASEMAPS = {
+      dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+      positron: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+      satellite: {
+        version: 8,
+        sources: {
+          'esri-satellite': {
+            type: 'raster',
+            tiles: [
+              'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+            ],
+            tileSize: 256,
+            maxzoom: 19,
+            attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics'
+          }
+        },
+        layers: [
+          {
+            id: 'esri-satellite-layer',
+            type: 'raster',
+            source: 'esri-satellite',
+            minzoom: 0,
+            maxzoom: 19
+          }
+        ]
+      },
+      hybrid: {
+        version: 8,
+        sources: {
+          'google-hybrid': {
+            type: 'raster',
+            tiles: [
+              'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'
+            ],
+            tileSize: 256,
+            maxzoom: 20,
+            attribution: '&copy; Google Maps'
+          }
+        },
+        layers: [
+          {
+            id: 'google-hybrid-layer',
+            type: 'raster',
+            source: 'google-hybrid',
+            minzoom: 0,
+            maxzoom: 20
+          }
+        ]
+      }
+    };
+
+    let currentBasemap = 'dark';
+    let activeGpkg = '';
+    let currentMetadata = null;
+    let abortController = null;
+    let availableProfiles = [];
+    let lastSegmentsGeoJson = { type: 'FeatureCollection', features: [] };
+    let lastNodesGeoJson = { type: 'FeatureCollection', features: [] };
+    let interactionsInitialized = false;
+
+    // Inicializar mapa MapLibre
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: BASEMAPS[currentBasemap],
+      center: [-64.0, -34.0], // Centro Argentina / Sudamérica
+      zoom: 5
+    });
+
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+
+    // UI elements
+    const gpkgSelect = document.getElementById('gpkgSelect');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const btnFitBounds = document.getElementById('btnFitBounds');
+    const btnToggleSidebar = document.getElementById('btnToggleSidebar');
+    const btnOpenBuildTab = document.getElementById('btnOpenBuildTab');
+    const sidebar = document.getElementById('sidebar');
+    const zoomDisplay = document.getElementById('zoomDisplay');
+    const coordsDisplay = document.getElementById('coordsDisplay');
+
+    // Tab switching helper
+    function selectTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('active', 'border-emerald-500', 'text-emerald-400', 'bg-slate-800/50');
+        b.classList.add('border-transparent', 'text-slate-400');
+      });
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
+
+      const targetBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+      if (targetBtn) {
+        targetBtn.classList.add('active', 'border-emerald-500', 'text-emerald-400', 'bg-slate-800/50');
+        targetBtn.classList.remove('border-transparent', 'text-slate-400');
+      }
+
+      if (tabId === 'metrics') document.getElementById('tabMetrics').classList.remove('hidden');
+      if (tabId === 'layers') document.getElementById('tabLayers').classList.remove('hidden');
+      if (tabId === 'parity') document.getElementById('tabParity').classList.remove('hidden');
+      if (tabId === 'build') document.getElementById('tabBuild').classList.remove('hidden');
+    }
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => selectTab(btn.dataset.tab));
+    });
+
+    btnToggleSidebar.addEventListener('click', () => {
+      sidebar.classList.toggle('hidden');
+    });
+
+    btnOpenBuildTab.addEventListener('click', () => {
+      sidebar.classList.remove('hidden');
+      selectTab('build');
+    });
+
+    // Cargar capas en MapLibre al estar listo
+    map.on('load', () => {
+      setupMapLayers();
+      fetchGpkgFiles();
+      loadProfiles();
+      fetchDownloadsList();
+      startPolling();
+    });
+
+    map.on('mousemove', (e) => {
+      coordsDisplay.textContent = `${e.lngLat.lng.toFixed(4)}, ${e.lngLat.lat.toFixed(4)}`;
+    });
+
+    map.on('zoom', () => {
+      zoomDisplay.textContent = `Zoom: ${map.getZoom().toFixed(1)}`;
+    });
+
+    // Viewport debounced update
+    let debounceTimer;
+    map.on('moveend', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        updateViewportData();
+      }, 200);
+    });
+
+    function setupMapLayers() {
+      // Fuente GeoJSON de segmentos
+      if (!map.getSource('segments')) {
+        map.addSource('segments', {
+          type: 'geojson',
+          data: lastSegmentsGeoJson
+        });
+      }
+
+      const isSat = currentBasemap === 'satellite' || currentBasemap === 'hybrid';
+
+      // Capa de fondo/glow para resaltar líneas
+      if (!map.getLayer('segments-glow')) {
+        map.addLayer({
+          id: 'segments-glow',
+          type: 'line',
+          source: 'segments',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': isSat ? '#000000' : '#ffffff',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 6, 2, 14, 5],
+            'line-opacity': isSat ? 0.6 : 0.15
+          }
+        });
+      }
+
+      // Capa de líneas coloreadas según highway
+      if (!map.getLayer('segments-line')) {
+        map.addLayer({
+          id: 'segments-line',
+          type: 'line',
+          source: 'segments',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': [
+              'match',
+              ['get', 'highway'],
+              'motorway', HIGHWAY_COLORS.motorway,
+              'motorway_link', HIGHWAY_COLORS.motorway_link,
+              'trunk', HIGHWAY_COLORS.trunk,
+              'trunk_link', HIGHWAY_COLORS.trunk_link,
+              'primary', HIGHWAY_COLORS.primary,
+              'primary_link', HIGHWAY_COLORS.primary_link,
+              'secondary', HIGHWAY_COLORS.secondary,
+              'secondary_link', HIGHWAY_COLORS.secondary_link,
+              'tertiary', HIGHWAY_COLORS.tertiary,
+              'tertiary_link', HIGHWAY_COLORS.tertiary_link,
+              'residential', HIGHWAY_COLORS.residential,
+              'service', HIGHWAY_COLORS.service,
+              'track', HIGHWAY_COLORS.track,
+              '#64748b' // default color
+            ],
+            'line-width': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              6, 1.4,
+              12, 2.8,
+              16, 5
+            ],
+            'line-opacity': 0.95
+          }
+        });
+      }
+
+      // Fuente GeoJSON de nodos
+      if (!map.getSource('nodes')) {
+        map.addSource('nodes', {
+          type: 'geojson',
+          data: lastNodesGeoJson
+        });
+      }
+
+      // Capa de nodos (puntos verdes)
+      if (!map.getLayer('nodes-circle')) {
+        map.addLayer({
+          id: 'nodes-circle',
+          type: 'circle',
+          source: 'nodes',
+          paint: {
+            'circle-radius': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              14, 2.5,
+              18, 6
+            ],
+            'circle-color': '#10b981',
+            'circle-stroke-color': '#0f172a',
+            'circle-stroke-width': 1.5,
+            'circle-opacity': 0.95
+          }
+        });
+      }
+
+      setupInteractions();
+    }
+
+    function setupInteractions() {
+      if (interactionsInitialized) return;
+      interactionsInitialized = true;
+
+      // Interacción: Popup al hacer click en un segmento
+      map.on('click', 'segments-line', (e) => {
+        if (!e.features || !e.features[0]) return;
+        const p = e.features[0].properties;
+        const color = HIGHWAY_COLORS[p.highway] || '#64748b';
+
+        const html = `
+          <div class="space-y-2 text-xs">
+            <div class="flex items-center justify-between gap-2 border-b border-slate-700/60 pb-1.5">
+              <span class="font-bold text-sm text-white">${p.name || '<span class="text-slate-500 italic">Sin nombre</span>'}</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-semibold text-white uppercase" style="background-color: ${color}cc">${p.highway}</span>
+            </div>
+            <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-slate-300">
+              <div><span class="text-slate-500">Longitud:</span> <span class="font-medium text-white">${p.length_m} m</span></div>
+              <div><span class="text-slate-500">Costo:</span> <span class="font-medium text-white">${p.travel_cost}</span></div>
+              <div><span class="text-slate-500">Sentido:</span> <span class="font-medium text-white">${p.is_oneway ? 'Único ➔' : 'Doble vía'}</span></div>
+              <div><span class="text-slate-500">Vel. máx:</span> <span class="font-medium text-white">${p.max_speed ? p.max_speed + ' km/h' : 'N/D'}</span></div>
+              <div><span class="text-slate-500">Carriles:</span> <span class="font-medium text-white">${p.lanes ?? 'N/D'}</span></div>
+              <div><span class="text-slate-500">Fid:</span> <span class="font-mono text-slate-400">#${p.fid}</span></div>
+            </div>
+            <div class="pt-1.5 border-t border-slate-800 flex items-center justify-between text-[11px]">
+              <span class="text-slate-500 font-mono">From ${p.from_key} ➔ To ${p.to_key}</span>
+              ${p.osm_id ? `<a href="https://www.openstreetmap.org/way/${p.osm_id}" target="_blank" class="text-emerald-400 hover:underline flex items-center gap-1 font-medium">OSM #${p.osm_id} ↗</a>` : ''}
+            </div>
+          </div>
+        `;
+
+        new maplibregl.Popup({ maxWidth: '320px' })
+          .setLngLat(e.lngLat)
+          .setHTML(html)
+          .addTo(map);
+      });
+
+      // Cursor pointer al pasar sobre las líneas
+      map.on('mouseenter', 'segments-line', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'segments-line', () => { map.getCanvas().style.cursor = ''; });
+
+      // Click en nodos
+      map.on('click', 'nodes-circle', (e) => {
+        if (!e.features || !e.features[0]) return;
+        const p = e.features[0].properties;
+        new maplibregl.Popup()
+          .setLngLat(e.lngLat)
+          .setHTML(`
+            <div class="text-xs space-y-1">
+              <span class="font-bold text-emerald-400 block">Nodo de Red</span>
+              <div><span class="text-slate-400">Key:</span> <span class="font-mono text-white">${p.node_key}</span></div>
+              <div><span class="text-slate-400">Valencia:</span> <span class="font-medium text-white">${p.valence} conexiones</span></div>
+            </div>
+          `)
+          .addTo(map);
+      });
+      map.on('mouseenter', 'nodes-circle', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'nodes-circle', () => { map.getCanvas().style.cursor = ''; });
+    }
+
+    // Listar archivos GeoPackage disponibles
+    async function fetchGpkgFiles() {
+      try {
+        const res = await fetch('/api/files');
+        const data = await res.json();
+        
+        gpkgSelect.innerHTML = '';
+        if (!data.files || data.files.length === 0) {
+          gpkgSelect.innerHTML = '<option value="">No hay archivos .gpkg en output/</option>';
+          return;
+        }
+
+        data.files.forEach(f => {
+          const opt = document.createElement('option');
+          opt.value = f.fileName;
+          const mb = (f.sizeBytes / (1024 * 1024)).toFixed(1);
+          opt.textContent = `${f.fileName} (${mb} MB)`;
+          if (f.fileName === data.current) opt.selected = true;
+          gpkgSelect.appendChild(opt);
+        });
+
+        activeGpkg = gpkgSelect.value;
+        await loadGpkgMetadata(activeGpkg);
+      } catch (err) {
+        console.error('Error al listar archivos:', err);
+      }
+    }
+
+    gpkgSelect.addEventListener('change', () => {
+      activeGpkg = gpkgSelect.value;
+      loadGpkgMetadata(activeGpkg);
+    });
+
+    // Cargar metadatos y reporte del GeoPackage
+    async function loadGpkgMetadata(fileName) {
+      if (!fileName) return;
+
+      try {
+        const res = await fetch(`/api/info?file=${encodeURIComponent(fileName)}`);
+        const meta = await res.json();
+        currentMetadata = meta;
+
+        // Actualizar badges
+        document.getElementById('badgeSegments').textContent = meta.segmentCount.toLocaleString();
+        document.getElementById('badgeNodes').textContent = meta.nodeCount.toLocaleString();
+        document.getElementById('metricSegments').textContent = meta.segmentCount.toLocaleString();
+        document.getElementById('metricNodes').textContent = meta.nodeCount.toLocaleString();
+
+        let totalKm = '--';
+        if (meta.report && meta.report.quality && meta.report.quality.totalKm) {
+          totalKm = meta.report.quality.totalKm.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' km';
+        }
+        document.getElementById('badgeTotalKm').textContent = totalKm;
+        document.getElementById('metricKm').textContent = totalKm;
+
+        if (meta.report && meta.report.quality && meta.report.quality.connectedComponents) {
+          document.getElementById('metricComponents').textContent = meta.report.quality.connectedComponents;
+        } else {
+          document.getElementById('metricComponents').textContent = 'N/D';
+        }
+
+        // Desglose por highway
+        renderHighwayBreakdown(meta);
+
+        // Tiempos
+        renderTimings(meta);
+
+        // Paridad
+        renderParity(meta);
+
+        // Centrar mapa si hay bounds y actualizar rutas al finalizar el movimiento
+        if (meta.bounds) {
+          map.fitBounds([
+            [meta.bounds.minLon, meta.bounds.minLat],
+            [meta.bounds.maxLon, meta.bounds.maxLat]
+          ], { padding: 40, maxZoom: 13, duration: 500 });
+
+          map.once('moveend', () => {
+            updateViewportData();
+          });
+        }
+
+        // Llamar también de inmediato
+        updateViewportData();
+      } catch (err) {
+        console.error('Error al cargar info de GPKG:', err);
+      }
+    }
+
+    function fitToBounds(b) {
+      if (!b) return;
+      map.fitBounds([
+        [b.minLon, b.minLat],
+        [b.maxLon, b.maxLat]
+      ], { padding: 40, maxZoom: 13, duration: 500 });
+      map.once('moveend', () => updateViewportData());
+    }
+
+    btnFitBounds.addEventListener('click', () => {
+      if (currentMetadata && currentMetadata.bounds) {
+        fitToBounds(currentMetadata.bounds);
+      }
+    });
+
+    function renderHighwayBreakdown(meta) {
+      const container = document.getElementById('highwayBreakdown');
+      const checkboxes = document.getElementById('highwayCheckboxes');
+      container.innerHTML = '';
+      checkboxes.innerHTML = '';
+
+      const quality = meta.report && meta.report.quality;
+      const kmByHw = quality ? quality.kmByHighway : {};
+      const segByHw = quality ? quality.segmentsByHighway : {};
+
+      const keys = Object.keys(kmByHw);
+      if (keys.length === 0) {
+        container.innerHTML = '<p class="text-slate-500">Sin estadísticas detalladas de highway.</p>';
+        return;
+      }
+
+      // Ordenar por km desc
+      keys.sort((a, b) => (kmByHw[b] || 0) - (kmByHw[a] || 0));
+      const maxKm = kmByHw[keys[0]] || 1;
+
+      keys.forEach(hw => {
+        const km = kmByHw[hw] || 0;
+        const seg = segByHw[hw] || 0;
+        const pct = Math.max(4, Math.round((km / maxKm) * 100));
+        const color = HIGHWAY_COLORS[hw] || '#64748b';
+
+        // Barra en Métricas
+        const row = document.createElement('div');
+        row.className = 'space-y-1';
+        row.innerHTML = `
+          <div class="flex justify-between items-center text-[11px]">
+            <span class="font-medium text-slate-200 capitalize flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full" style="background-color: ${color}"></span>
+              ${hw}
+            </span>
+            <span class="text-slate-400 font-mono">${km.toFixed(1)} km <span class="text-slate-600">(${seg.toLocaleString()})</span></span>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div class="h-1.5 rounded-full" style="width: ${pct}%; background-color: ${color}"></div>
+          </div>
+        `;
+        container.appendChild(row);
+
+        // Checkbox en Capas
+        const label = document.createElement('label');
+        label.className = 'flex items-center justify-between text-slate-300 hover:text-white cursor-pointer py-0.5';
+        label.innerHTML = `
+          <div class="flex items-center gap-2">
+            <input type="checkbox" checked value="${hw}" class="hw-checkbox rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-0" />
+            <span class="capitalize">${hw}</span>
+          </div>
+          <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${color}"></span>
+        `;
+        checkboxes.appendChild(label);
+      });
+
+      // Evento para checkboxes
+      document.querySelectorAll('.hw-checkbox').forEach(chk => {
+        chk.addEventListener('change', () => updateViewportData());
+      });
+    }
+
+    function renderTimings(meta) {
+      const box = document.getElementById('timingsBox');
+      const list = document.getElementById('timingsList');
+      list.innerHTML = '';
+
+      const timings = meta.report && meta.report.timings;
+      if (!timings) {
+        box.classList.add('hidden');
+        return;
+      }
+
+      box.classList.remove('hidden');
+      for (const [k, v] of Object.entries(timings)) {
+        list.innerHTML += `<div><span class="text-slate-500 capitalize">${k}:</span> <span class="font-mono text-slate-200">${v}</span></div>`;
+      }
+    }
+
+    function renderParity(meta) {
+      const tabBtn = document.getElementById('tabParityBtn');
+      const content = document.getElementById('parityContent');
+
+      if (!meta.parity) {
+        tabBtn.classList.add('hidden');
+        content.innerHTML = '<p class="text-slate-500">No se encontró reporte de paridad (.parity.json).</p>';
+        return;
+      }
+
+      tabBtn.classList.remove('hidden');
+      const p = meta.parity;
+      content.innerHTML = `
+        <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700/60 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="font-semibold text-slate-200">Paridad con Base de Datos</span>
+            <span class="px-2 py-0.5 rounded text-[10px] ${p.hasChanges ? 'bg-amber-950 text-amber-400 border border-amber-800' : 'bg-emerald-950 text-emerald-400 border border-emerald-800'}">
+              ${p.hasChanges ? 'Con diferencias' : 'Idéntico'}
+            </span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-[11px] pt-1">
+            <div><span class="text-slate-400">Total en BD:</span> <span class="font-bold text-white">${p.dbSegmentsCount?.toLocaleString() ?? '--'}</span></div>
+            <div><span class="text-slate-400">Total en GPKG:</span> <span class="font-bold text-white">${p.gpkgSegmentsCount?.toLocaleString() ?? '--'}</span></div>
+            <div><span class="text-slate-400">Coincidentes:</span> <span class="font-bold text-emerald-400">${p.matchedSegmentsCount?.toLocaleString() ?? '--'}</span></div>
+            <div><span class="text-slate-400">Retirados:</span> <span class="font-bold text-rose-400">${p.retiredSegmentsCount?.toLocaleString() ?? '--'}</span></div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Actualizar datos del viewport según Bounding Box y Zoom
+    async function updateViewportData() {
+      if (!activeGpkg) return;
+
+      if (abortController) {
+        abortController.abort();
+      }
+      abortController = new AbortController();
+
+      const bounds = map.getBounds();
+      const zoom = map.getZoom();
+
+      const minLon = bounds.getWest();
+      const minLat = bounds.getSouth();
+      const maxLon = bounds.getEast();
+      const maxLat = bounds.getNorth();
+
+      // Leer checkboxes de highways
+      const selectedHws = Array.from(document.querySelectorAll('.hw-checkbox:checked')).map(c => c.value);
+      const hwParam = selectedHws.length > 0 ? `&highways=${encodeURIComponent(selectedHws.join(','))}` : '';
+
+      loadingIndicator.classList.remove('hidden');
+
+      try {
+        const url = `/api/segments?file=${encodeURIComponent(activeGpkg)}&minLon=${minLon}&minLat=${minLat}&maxLon=${maxLon}&maxLat=${maxLat}&zoom=${zoom}${hwParam}&limit=12000`;
+        const res = await fetch(url, { signal: abortController.signal });
+        const geoJson = await res.json();
+
+        if (map.getSource('segments')) {
+          map.getSource('segments').setData(geoJson);
+        }
+
+        // Nodos (solo zoom >= 14)
+        const showNodes = document.getElementById('chkShowNodes').checked;
+        if (showNodes && zoom >= 14) {
+          const nodesUrl = `/api/nodes?file=${encodeURIComponent(activeGpkg)}&minLon=${minLon}&minLat=${minLat}&maxLon=${maxLon}&maxLat=${maxLat}&limit=3000`;
+          const nodesRes = await fetch(nodesUrl, { signal: abortController.signal });
+          const nodesGeoJson = await nodesRes.json();
+          if (map.getSource('nodes')) {
+            map.getSource('nodes').setData(nodesGeoJson);
+          }
+        } else {
+          if (map.getSource('nodes')) {
+            map.getSource('nodes').setData({ type: 'FeatureCollection', features: [] });
+          }
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('Error al actualizar datos espaciales:', err);
+        }
+      } finally {
+        loadingIndicator.classList.add('hidden');
+      }
+    }
+
+    // Toggle de nodos
+    document.getElementById('chkShowNodes').addEventListener('change', () => {
+      updateViewportData();
+    });
+
+    // Selector de mapa base
+    function switchBasemap(styleKey) {
+      if (!BASEMAPS[styleKey] || currentBasemap === styleKey) return;
+      currentBasemap = styleKey;
+
+      document.querySelectorAll('.basemap-btn').forEach(b => {
+        if (b.dataset.basemap === styleKey) {
+          b.classList.add('active', 'border-emerald-500', 'text-emerald-400');
+          b.classList.remove('border-slate-700', 'text-slate-300');
+        } else {
+          b.classList.remove('active', 'border-emerald-500', 'text-emerald-400');
+          b.classList.add('border-slate-700', 'text-slate-300');
+        }
+      });
+
+      // Actualizar botón rápido en navbar
+      const btnQuick = document.getElementById('btnQuickSatellite');
+      const lblQuick = document.getElementById('quickSatelliteLabel');
+      if (styleKey === 'satellite' || styleKey === 'hybrid') {
+        btnQuick.classList.add('border-emerald-500', 'text-emerald-400', 'bg-slate-800/90');
+        lblQuick.textContent = 'Vectorial';
+      } else {
+        btnQuick.classList.remove('border-emerald-500', 'text-emerald-400', 'bg-slate-800/90');
+        lblQuick.textContent = 'Satelital';
+      }
+
+      map.setStyle(BASEMAPS[styleKey]);
+      map.once('style.load', () => {
+        setupMapLayers();
+        updateViewportData();
+      });
+    }
+
+    document.querySelectorAll('.basemap-btn').forEach(btn => {
+      btn.addEventListener('click', () => switchBasemap(btn.dataset.basemap));
+    });
+
+    const btnQuickSatellite = document.getElementById('btnQuickSatellite');
+    btnQuickSatellite.addEventListener('click', () => {
+      if (currentBasemap === 'satellite' || currentBasemap === 'hybrid') {
+        switchBasemap('dark');
+      } else {
+        switchBasemap('satellite');
+      }
+    });
+
+    // =========================================================================
+    // LÓGICA DE BÚSQUEDA, DESCARGA GEOFABRIK Y CONSTRUCCIÓN (BUILD)
+    // =========================================================================
+
+    const regionSearchInput = document.getElementById('regionSearchInput');
+    const btnSearchRegions = document.getElementById('btnSearchRegions');
+    const regionSearchResults = document.getElementById('regionSearchResults');
+    const localPbfList = document.getElementById('localPbfList');
+    const btnRefreshDownloads = document.getElementById('btnRefreshDownloads');
+    const btnOpenDownloadsFolder = document.getElementById('btnOpenDownloadsFolder');
+    const downloadsPathDisplay = document.getElementById('downloadsPathDisplay');
+    const buildPbfInput = document.getElementById('buildPbfInput');
+    const buildProfileSelect = document.getElementById('buildProfileSelect');
+    const profileDescription = document.getElementById('profileDescription');
+    const btnCaptureBbox = document.getElementById('btnCaptureBbox');
+    const bboxMinLon = document.getElementById('bboxMinLon');
+    const bboxMinLat = document.getElementById('bboxMinLat');
+    const bboxMaxLon = document.getElementById('bboxMaxLon');
+    const bboxMaxLat = document.getElementById('bboxMaxLat');
+    const buildBufferMeters = document.getElementById('buildBufferMeters');
+    const buildOutName = document.getElementById('buildOutName');
+    const btnStartBuild = document.getElementById('btnStartBuild');
+    const liveConsole = document.getElementById('liveConsole');
+    const btnClearLogs = document.getElementById('btnClearLogs');
+
+    // Abrir carpeta en Windows Explorer
+    btnOpenDownloadsFolder.addEventListener('click', async () => {
+      try {
+        await fetch('/api/open-folder', { method: 'POST' });
+      } catch (err) {
+        console.error('Error al abrir carpeta:', err);
+      }
+    });
+
+    // Buscar regiones en Geofabrik
+    async function searchGeofabrikRegions() {
+      const q = regionSearchInput.value.trim();
+      if (!q) return;
+
+      btnSearchRegions.textContent = 'Buscando...';
+      btnSearchRegions.disabled = true;
+      regionSearchResults.classList.remove('hidden');
+      regionSearchResults.innerHTML = '<p class="text-slate-400 text-[11px] animate-pulse">Consultando Geofabrik...</p>';
+
+      try {
+        const res = await fetch(`/api/regions?search=${encodeURIComponent(q)}`);
+        const regions = await res.json();
+
+        regionSearchResults.innerHTML = '';
+        if (!regions || regions.length === 0) {
+          regionSearchResults.innerHTML = `<p class="text-slate-500 text-[11px]">No se encontraron regiones con '${q}'.</p>`;
+          return;
+        }
+
+        regions.forEach(r => {
+          const item = document.createElement('div');
+          item.className = 'flex items-center justify-between bg-slate-900/80 p-2 rounded border border-slate-700/60 hover:border-slate-600 transition';
+          item.innerHTML = `
+            <div class="truncate mr-2">
+              <span class="font-medium text-slate-200 block truncate">${r.name}</span>
+              <span class="text-[10px] text-slate-500 block truncate">${r.parent ? r.parent + ' / ' : ''}${r.id}</span>
+            </div>
+            <button data-id="${r.id}" class="btn-download-region bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-semibold px-2.5 py-1 rounded transition flex-shrink-0 flex items-center gap-1">
+              <span>⬇️ Descargar</span>
+            </button>
+          `;
+          regionSearchResults.appendChild(item);
+        });
+
+        // Eventos a botones de descarga
+        document.querySelectorAll('.btn-download-region').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const regionId = btn.dataset.id;
+            await triggerDownload(regionId);
+          });
+        });
+      } catch (err) {
+        regionSearchResults.innerHTML = `<p class="text-rose-400 text-[11px]">Error al buscar: ${err.message}</p>`;
+      } finally {
+        btnSearchRegions.textContent = 'Buscar';
+        btnSearchRegions.disabled = false;
+      }
+    }
+
+    btnSearchRegions.addEventListener('click', searchGeofabrikRegions);
+    regionSearchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') searchGeofabrikRegions();
+    });
+
+    // Iniciar descarga (Bloquea la UI)
+    async function triggerDownload(regionId) {
+      try {
+        showBusyOverlay({
+          type: 'download',
+          title: `Descargando '${regionId}' desde Geofabrik`,
+          currentStep: 'Iniciando descarga y verificando suma MD5...'
+        });
+
+        const res = await fetch('/api/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ region: regionId, force: false })
+        });
+        
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || 'Error al iniciar descarga');
+        }
+      } catch (err) {
+        onJobError({ errorMessage: err.message });
+      }
+    }
+
+    // Listar descargas locales
+    async function fetchDownloadsList() {
+      try {
+        const res = await fetch('/api/downloads');
+        const data = await res.json();
+
+        if (data.downloadsDir) {
+          downloadsPathDisplay.textContent = data.downloadsDir;
+        }
+
+        const files = data.files || [];
+        localPbfList.innerHTML = '';
+        if (files.length === 0) {
+          localPbfList.innerHTML = '<p class="text-slate-500 text-[11px]">No hay archivos .pbf descargados</p>';
+          return;
+        }
+
+        files.forEach(f => {
+          const item = document.createElement('div');
+          item.className = 'flex items-center justify-between bg-slate-900/60 p-1.5 rounded border border-slate-700/40 text-[11px]';
+          item.innerHTML = `
+            <div class="truncate mr-2">
+              <span class="text-slate-200 font-mono block truncate">${f.fileName}</span>
+              <span class="text-[10px] text-slate-400">${f.sizeMb} MB <span class="text-slate-600">(${f.folderLabel || 'local'})</span></span>
+            </div>
+            <button data-file="${f.fileName}" class="btn-use-pbf bg-slate-800 hover:bg-slate-700 text-emerald-400 font-medium px-2 py-0.5 rounded text-[10px] border border-slate-700 transition">
+              Usar
+            </button>
+          `;
+          localPbfList.appendChild(item);
+        });
+
+        document.querySelectorAll('.btn-use-pbf').forEach(btn => {
+          btn.addEventListener('click', () => {
+            buildPbfInput.value = btn.dataset.file;
+            buildPbfInput.classList.add('ring-2', 'ring-emerald-500');
+            setTimeout(() => buildPbfInput.classList.remove('ring-2', 'ring-emerald-500'), 1500);
+          });
+        });
+      } catch (err) {
+        console.error('Error al listar descargas:', err);
+      }
+    }
+
+    btnRefreshDownloads.addEventListener('click', fetchDownloadsList);
+
+    // Cargar perfiles
+    async function loadProfiles() {
+      try {
+        const res = await fetch('/api/profiles');
+        availableProfiles = await res.json();
+
+        buildProfileSelect.innerHTML = '<option value="">(Sin perfil - Valores genéricos)</option>';
+        availableProfiles.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.name;
+          opt.textContent = `${p.name} ${p.description ? '— ' + p.description : ''}`;
+          buildProfileSelect.appendChild(opt);
+        });
+
+        buildProfileSelect.addEventListener('change', () => {
+          const selected = availableProfiles.find(p => p.name === buildProfileSelect.value);
+          if (selected) {
+            profileDescription.textContent = selected.description || '';
+            if (selected.bbox) {
+              bboxMinLon.value = selected.bbox.minLon;
+              bboxMinLat.value = selected.bbox.minLat;
+              bboxMaxLon.value = selected.bbox.maxLon;
+              bboxMaxLat.value = selected.bbox.maxLat;
+            }
+            if (selected.bufferMeters) {
+              buildBufferMeters.value = selected.bufferMeters;
+            }
+          } else {
+            profileDescription.textContent = '';
+          }
+        });
+      } catch (err) {
+        console.error('Error al cargar perfiles:', err);
+      }
+    }
+
+    // Capturar Bounding Box actual del mapa
+    btnCaptureBbox.addEventListener('click', () => {
+      const b = map.getBounds();
+      bboxMinLon.value = b.getWest().toFixed(4);
+      bboxMinLat.value = b.getSouth().toFixed(4);
+      bboxMaxLon.value = b.getEast().toFixed(4);
+      bboxMaxLat.value = b.getNorth().toFixed(4);
+
+      btnCaptureBbox.classList.add('bg-emerald-600', 'text-white');
+      btnCaptureBbox.innerHTML = '<span>✓ Capturado</span>';
+      setTimeout(() => {
+        btnCaptureBbox.classList.remove('bg-emerald-600', 'text-white');
+        btnCaptureBbox.innerHTML = '<span>🎯 Capturar del mapa</span>';
+      }, 1200);
+    });
+
+    // Iniciar Build (Bloquea la UI)
+    btnStartBuild.addEventListener('click', async () => {
+      const pbf = buildPbfInput.value.trim();
+      if (!pbf) {
+        alert('Por favor selecciona o ingresa un archivo .pbf');
+        buildPbfInput.focus();
+        return;
+      }
+
+      let bbox = null;
+      if (bboxMinLon.value && bboxMinLat.value && bboxMaxLon.value && bboxMaxLat.value) {
+        bbox = {
+          minLon: parseFloat(bboxMinLon.value),
+          minLat: parseFloat(bboxMinLat.value),
+          maxLon: parseFloat(bboxMaxLon.value),
+          maxLat: parseFloat(bboxMaxLat.value)
+        };
+      }
+
+      const payload = {
+        pbf,
+        profile: buildProfileSelect.value || null,
+        outName: buildOutName.value.trim() || null,
+        bbox,
+        bufferMeters: buildBufferMeters.value ? parseFloat(buildBufferMeters.value) : null
+      };
+
+      showBusyOverlay({
+        type: 'build',
+        title: `Construyendo red vial desde '${pbf}'`,
+        currentStep: 'Iniciando escaneo de vías y nodos...'
+      });
+
+      try {
+        const res = await fetch('/api/build', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || 'Error al iniciar build');
+        }
+      } catch (err) {
+        onJobError({ errorMessage: err.message });
+      }
+    });
+
+    // =========================================================================
+    // SISTEMA DE BLOQUEO DE UI Y SEGUIMIENTO DE TAREAS (JOB TRACKER)
+    // =========================================================================
+
+    const busyOverlay = document.getElementById('busyOverlay');
+    const busyIcon = document.getElementById('busyIcon');
+    const busyTitle = document.getElementById('busyTitle');
+    const busySubtitle = document.getElementById('busySubtitle');
+    const busyConsole = document.getElementById('busyConsole');
+    let wasActive = false;
+
+    function showBusyOverlay(job) {
+      busyOverlay.classList.remove('hidden');
+      busyTitle.textContent = job.title || 'Operación en curso';
+      busySubtitle.textContent = job.currentStep || 'Procesando...';
+      busyIcon.textContent = job.type === 'download' ? '⬇️' : '⚙️';
+    }
+
+    function onJobCompleted(job) {
+      busyIcon.textContent = '✅';
+      busyTitle.textContent = '¡Operación finalizada con éxito!';
+      busySubtitle.textContent = job.currentStep || 'Completado.';
+      
+      setTimeout(async () => {
+        busyOverlay.classList.add('hidden');
+        if (job.type === 'download') {
+          await fetchDownloadsList();
+          if (job.resultFile) {
+            buildPbfInput.value = job.resultFile;
+          }
+        } else if (job.type === 'build') {
+          await fetchGpkgFiles();
+          if (job.resultFile) {
+            gpkgSelect.value = job.resultFile;
+            await loadGpkgMetadata(job.resultFile);
+          }
+        }
+      }, 1600);
+    }
+
+    function onJobError(job) {
+      busyIcon.textContent = '❌';
+      busyTitle.textContent = 'Error en la operación';
+      busySubtitle.textContent = job.errorMessage || 'Ocurrió un error inesperado.';
+      setTimeout(() => {
+        busyOverlay.classList.add('hidden');
+      }, 3500);
+    }
+
+    // Polling central de estado de jobs y logs
+    let lastLogCount = 0;
+    function startPolling() {
+      setInterval(async () => {
+        try {
+          // 1. Chequear estado de la tarea en curso
+          const statusRes = await fetch('/api/job/status');
+          const statusData = await statusRes.json();
+          
+          if (statusData.active && statusData.job) {
+            wasActive = true;
+            showBusyOverlay(statusData.job);
+          } else if (wasActive && statusData.job) {
+            wasActive = false;
+            if (statusData.job.status === 'completed') {
+              onJobCompleted(statusData.job);
+            } else if (statusData.job.status === 'error') {
+              onJobError(statusData.job);
+            }
+          }
+
+          // 2. Traer logs recientes y actualizar consolas
+          const logsRes = await fetch('/api/logs');
+          const logs = await logsRes.json();
+          if (logs && logs.length > 0 && logs.length !== lastLogCount) {
+            lastLogCount = logs.length;
+            const formatted = logs.map(l => {
+              if (l.includes('ERROR')) return `<span class="text-rose-400 font-bold">${l}</span>`;
+              if (l.includes('▶')) return `<span class="text-cyan-400 font-semibold">${l}</span>`;
+              if (l.includes('ADVERTENCIA')) return `<span class="text-amber-400">${l}</span>`;
+              return `<span>${l}</span>`;
+            }).join('\n');
+
+            liveConsole.innerHTML = formatted;
+            liveConsole.scrollTop = liveConsole.scrollHeight;
+
+            if (!busyOverlay.classList.contains('hidden')) {
+              busyConsole.innerHTML = formatted;
+              busyConsole.scrollTop = busyConsole.scrollHeight;
+            }
+          }
+        } catch {}
+      }, 1000);
+    }
+
+    btnClearLogs.addEventListener('click', () => {
+      liveConsole.innerHTML = '<span class="text-slate-600">// Consola limpia</span>';
+      lastLogCount = 0;
+    });
+
+  </script>
+</body>
+</html>

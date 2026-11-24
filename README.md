@@ -61,6 +61,7 @@ Repetirlo con el mismo GeoPackage no cambia nada.
 | `publish --gpkg <archivo> --mode create` | Base nueva: crea las tablas y carga |
 | `publish --gpkg <archivo> --mode replace` | Respalda, vacía y recarga. **Se niega** si alguna fila de otra tabla depende de la red |
 | `publish --gpkg <archivo> --mode sync` | Actualiza una base en uso (ver arriba) |
+| `serve [--gpkg <archivo>] [--port 5000]` | Levanta un visor web interactivo en localhost con mapa MapLibre GL, métricas y filtros |
 
 Opciones de `publish`: `--dry-run` (en `sync` ejecuta todo y revierte: muestra exactamente lo que pasaría),
 `--yes` (no preguntar), `--no-backup`, `--max-retired-percent <n>`, `--schema`, `--nodes-table`,

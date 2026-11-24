@@ -17,6 +17,7 @@ public static class Commands
         osmimport compare --gpkg <archivo.gpkg>
         osmimport regions [--search texto]
         osmimport download --region <región> [--out carpeta] [--force]
+        osmimport serve [--gpkg <archivo.gpkg>] [--port 5000] [--no-browser]
 
       BUILD: lee el pbf y genera un GeoPackage (.gpkg) con road_segments, road_nodes y build_info.
         --pbf <ruta>                 Archivo .osm.pbf (si falta, se pregunta)
@@ -64,6 +65,13 @@ public static class Commands
 
       COMPARE: cruza el GeoPackage con la red que ya está en la base (paridad, sin modificar nada).
         osmimport compare --gpkg <archivo.gpkg> [--connection ...] [--out reporte.json]
+
+      SERVE: levanta un visor web interactivo en localhost para inspeccionar los GeoPackage (.gpkg).
+        osmimport serve [--gpkg <archivo.gpkg>] [--port 5000] [--dir output] [--no-browser]
+        --gpkg <archivo>             Archivo GeoPackage a abrir (opcional; si falta, lista los de output/)
+        --port <puerto>              Puerto HTTP local (default 5000)
+        --dir <carpeta>              Carpeta de búsqueda de .gpkg (default output)
+        --no-browser                 No abrir el navegador automáticamente
 
       EJEMPLOS
         osmimport build --download argentina --profile sherpaslb

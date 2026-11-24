@@ -8,6 +8,8 @@ public static class Log
 
   public static bool Verbose { get; set; }
 
+  public static event Action<string>? OnLog;
+
   public static void Info(string message) => Write(message, null);
 
   public static void Debug(string message)
@@ -24,8 +26,10 @@ public static class Log
   private static void Write(string message, ConsoleColor? color)
   {
     var prefix = $"[{Clock.Elapsed:hh\\:mm\\:ss}] ";
+    var line = prefix + message;
     if (color is { } c) Console.ForegroundColor = c;
-    Console.WriteLine(prefix + message);
+    Console.WriteLine(line);
     if (color is not null) Console.ResetColor();
+    OnLog?.Invoke(line);
   }
 }

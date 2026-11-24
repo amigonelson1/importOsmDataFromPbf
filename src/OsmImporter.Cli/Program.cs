@@ -27,6 +27,7 @@ try
     "compare" => await PublishCommands.CompareAsync(parsed, cts.Token),
     "regions" => await DownloadCommands.RegionsAsync(parsed, cts.Token),
     "download" => await DownloadCommands.DownloadAsync(parsed, cts.Token),
+    "serve" => await OsmImporter.Cli.Server.ServeCommand.ExecuteAsync(parsed, cts.Token),
     "version" or "--version" => Commands.Version(),
     _ => Commands.Unknown(parsed.Command),
   };

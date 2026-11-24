@@ -21,6 +21,14 @@ public sealed class ParsedArgs
       throw new UsageException($"--{name}: '{v}' no es un número válido (usa punto decimal)");
     return d;
   }
+
+  public int? GetInt(string name)
+  {
+    if (Get(name) is not { } v) return null;
+    if (!int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i))
+      throw new UsageException($"--{name}: '{v}' no es un número entero válido");
+    return i;
+  }
 }
 
 /// <summary>Parser mínimo: comando + "--clave valor" + "--flag".</summary>
@@ -29,7 +37,7 @@ public static class ArgParser
   /// <summary>Opciones que no llevan valor.</summary>
   private static readonly HashSet<string> KnownFlags = new(StringComparer.OrdinalIgnoreCase)
   {
-    "verbose", "legacy-buffer", "no-reverse-oneway", "include-areas", "coverage-only", "overwrite", "yes", "dry-run", "no-backup", "force",
+    "verbose", "legacy-buffer", "no-reverse-oneway", "include-areas", "coverage-only", "overwrite", "yes", "dry-run", "no-backup", "force", "no-browser",
   };
 
   public static ParsedArgs Parse(string[] args)
