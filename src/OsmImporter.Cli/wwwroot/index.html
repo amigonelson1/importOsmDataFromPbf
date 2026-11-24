@@ -996,6 +996,7 @@
         const url = `/api/segments?file=${encodeURIComponent(activeGpkg)}&minLon=${minLon}&minLat=${minLat}&maxLon=${maxLon}&maxLat=${maxLat}&zoom=${zoom}${hwParam}&limit=12000`;
         const res = await fetch(url, { signal: abortController.signal });
         const geoJson = await res.json();
+        lastSegmentsGeoJson = geoJson;
 
         if (map.getSource('segments')) {
           map.getSource('segments').setData(geoJson);
@@ -1007,12 +1008,14 @@
           const nodesUrl = `/api/nodes?file=${encodeURIComponent(activeGpkg)}&minLon=${minLon}&minLat=${minLat}&maxLon=${maxLon}&maxLat=${maxLat}&limit=3000`;
           const nodesRes = await fetch(nodesUrl, { signal: abortController.signal });
           const nodesGeoJson = await nodesRes.json();
+          lastNodesGeoJson = nodesGeoJson;
           if (map.getSource('nodes')) {
             map.getSource('nodes').setData(nodesGeoJson);
           }
         } else {
+          lastNodesGeoJson = { type: 'FeatureCollection', features: [] };
           if (map.getSource('nodes')) {
-            map.getSource('nodes').setData({ type: 'FeatureCollection', features: [] });
+            map.getSource('nodes').setData(lastNodesGeoJson);
           }
         }
       } catch (err) {
@@ -1047,7 +1050,8 @@
       // Actualizar botón rápido en navbar
       const btnQuick = document.getElementById('btnQuickSatellite');
       const lblQuick = document.getElementById('quickSatelliteLabel');
-      if (styleKey === 'satellite' || styleKey === 'hybrid') {
+      const isSat = styleKey === 'satellite' || styleKey === 'hybrid';
+      if (isSat) {
         btnQuick.classList.add('border-emerald-500', 'text-emerald-400', 'bg-slate-800/90');
         lblQuick.textContent = 'Vectorial';
       } else {
@@ -1055,11 +1059,39 @@
         lblQuick.textContent = 'Satelital';
       }
 
-      map.setStyle(BASEMAPS[styleKey]);
-      map.once('style.load', () => {
-        setupMapLayers();
-        updateViewportData();
+      // Cambiar estilo preservando atómicamente las fuentes y capas de carreteras y nodos
+      map.setStyle(BASEMAPS[styleKey], {
+        transformStyle: (prev, next) => {
+          const sources = { ...next.sources };
+          if (prev?.sources?.['segments']) sources['segments'] = prev.sources['segments'];
+          if (prev?.sources?.['nodes']) sources['nodes'] = prev.sources['nodes'];
+
+          const customLayers = (prev?.layers || []).filter(l => 
+            l.id === 'segments-glow' || l.id === 'segments-line' || l.id === 'nodes-circle'
+          );
+
+          return {
+            ...next,
+            sources,
+            layers: [
+              ...next.layers,
+              ...customLayers
+            ]
+          };
+        }
       });
+
+      // Al cargarse el estilo, ajustar contraste del glow de las vías y refrescar datos
+      const onStyleReady = () => {
+        setupMapLayers();
+        if (map.getLayer('segments-glow')) {
+          map.setPaintProperty('segments-glow', 'line-color', isSat ? '#000000' : '#ffffff');
+          map.setPaintProperty('segments-glow', 'line-opacity', isSat ? 0.6 : 0.15);
+        }
+        updateViewportData();
+      };
+
+      map.once('styledata', onStyleReady);
     }
 
     document.querySelectorAll('.basemap-btn').forEach(btn => {
