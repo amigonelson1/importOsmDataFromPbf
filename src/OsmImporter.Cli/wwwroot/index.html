@@ -179,12 +179,20 @@
         <span class="hidden md:inline">Límites</span>
       </button>
 
-      <!-- Toggle rápido Satelital -->
+      <!-- Toggle rápido Satelital / Vectorial -->
       <button id="btnQuickSatellite"
-        title="Alternar rápidamente entre mapa vectorial y ortofoto satelital de alta resolución"
-        class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+        title="Alternar rápidamente entre mapa vectorial y ortofoto satelital híbrida"
+        class="bg-slate-800/90 hover:bg-slate-700 text-emerald-400 border border-emerald-500 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 shadow-sm">
         <span>🛰️</span>
-        <span id="quickSatelliteLabel">Satelital</span>
+        <span id="quickSatelliteLabel">Vectorial</span>
+      </button>
+
+      <!-- Toggle rápido Modo de Coloreado (Tipo de Vía vs Sentido) -->
+      <button id="btnQuickColorMode"
+        title="Alternar entre colorear por Tipo de Vía o Resaltar Sentido de Circulación (Doble sentido ⇄ vs Único ➔)"
+        class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+        <span id="quickColorModeIcon">🛣️</span>
+        <span id="quickColorModeLabel">Tipo Vía</span>
       </button>
 
       <!-- Toggle Panel Lateral -->
@@ -223,10 +231,46 @@
 
     <!-- Badge flotante de Límites de Red en el mapa -->
     <div id="boundaryOverlayBadge" title="Hacer clic para centrar en la extensión total de esta red"
-      class="absolute bottom-6 right-16 bg-slate-900/90 border border-cyan-500/60 shadow-xl px-2.5 py-1 rounded-lg text-[11px] text-cyan-300 backdrop-blur pointer-events-auto cursor-pointer z-10 hidden flex items-center gap-2 hover:bg-slate-800 transition">
+      class="absolute bottom-11 right-3 bg-slate-900/90 border border-cyan-500/60 shadow-xl px-2.5 py-1 rounded-lg text-[11px] text-cyan-300 backdrop-blur pointer-events-auto cursor-pointer z-10 hidden flex items-center gap-2 hover:bg-slate-800 transition">
       <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
       <span id="boundaryOverlayText" class="font-medium">Límite de red</span>
       <span class="text-[10px] text-cyan-400">🎯</span>
+    </div>
+
+    <!-- Widget Flotante de Leyenda y Control de Sentido de Circulación -->
+    <div id="directionFloatingWidget"
+      class="absolute bottom-6 left-4 md:left-[456px] bg-slate-900/95 backdrop-blur-md border border-amber-500/50 shadow-2xl rounded-xl p-3 z-20 max-w-xs md:max-w-sm hidden transition-all space-y-2">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+        <span class="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+          <span>🔄</span> Modo Sentido de Circulación
+        </span>
+        <button id="btnCloseDirectionWidget" title="Ocultar leyenda" class="text-slate-400 hover:text-white text-xs px-1">✕</button>
+      </div>
+      <div class="space-y-1.5 text-[11px]">
+        <div class="flex items-center justify-between p-1.5 rounded bg-emerald-950/40 border border-emerald-800/40">
+          <span class="flex items-center gap-2 font-medium text-emerald-300">
+            <span class="w-3 h-3 rounded-full bg-emerald-500 shadow-sm flex-shrink-0"></span>
+            <span><b>Verde:</b> Doble Sentido (⇄)</span>
+          </span>
+          <span class="text-[10px] text-emerald-400 font-semibold" id="floatTwoWayCount">Doble vía (sólido)</span>
+        </div>
+        <div class="flex items-center justify-between p-1.5 rounded bg-amber-950/40 border border-amber-800/40">
+          <span class="flex items-center gap-2 font-medium text-amber-300">
+            <span class="w-3 h-3 rounded-full bg-amber-500 shadow-sm flex-shrink-0"></span>
+            <span><b>Naranja:</b> Sentido Único (➔)</span>
+          </span>
+          <span class="text-[10px] text-amber-400 font-semibold" id="floatOneWayCount">Unidireccional (flechas)</span>
+        </div>
+        <p class="text-[10px] text-slate-400 pt-0.5">
+          💡 Las vías de <b>sentido único</b> muestran flechas direccionales <b class="text-amber-400">▸▸▸</b> que indican el flujo vehicular permitido (zoom ≥ 12).
+        </p>
+      </div>
+      <div class="pt-1">
+        <button type="button" id="btnFlyToOnewayExample"
+          class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-[11px] transition flex items-center justify-center gap-1.5 shadow">
+          <span>🎯</span> Ver ejemplo de vías sentido único
+        </button>
+      </div>
     </div>
 
     <!-- Floating Lateral Drawer (Dashboard & Filtros) -->
@@ -235,23 +279,23 @@
 
       <!-- Tabs Navigation -->
       <div class="flex border-b border-slate-800 px-2 pt-2.5 gap-1 overflow-x-auto">
-        <button data-tab="metrics" title="Ver métricas de calidad, kilometraje, componentes y desglose por tipo de vía"
-          class="tab-btn active text-xs font-semibold px-2.5 py-2 rounded-t-lg border-b-2 border-emerald-500 text-emerald-400 bg-slate-800/50 flex-shrink-0">
-          Métricas
-        </button>
         <button data-tab="build" id="tabBuildBtn"
           title="Descargar regiones de Geofabrik, seleccionar áreas y generar nuevos GeoPackages"
-          class="tab-btn text-xs font-medium px-2.5 py-2 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex-shrink-0 flex items-center gap-1">
-          <span>📥 Descarga & Build</span>
+          class="tab-btn active text-xs font-semibold px-2.5 py-2 rounded-t-lg border-b-2 border-emerald-500 text-emerald-400 bg-slate-800/50 flex-shrink-0 flex items-center gap-1">
+          <span>📥 Carga de Data</span>
         </button>
-        <button data-tab="layers" title="Filtrar tipos de carreteras visibles y cambiar estilo de mapa base"
-          class="tab-btn text-xs font-medium px-2.5 py-2 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex-shrink-0">
-          Capas
+        <button data-tab="layers" title="Filtrar tipos de carreteras visibles, cambiar mapa base y sentidos de circulación"
+          class="tab-btn text-xs font-medium px-2.5 py-2 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex-shrink-0 flex items-center gap-1">
+          <span>🗺️ Capas</span>
+        </button>
+        <button data-tab="metrics" title="Ver métricas de calidad, kilometraje, componentes y desglose por tipo de vía"
+          class="tab-btn text-xs font-medium px-2.5 py-2 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex-shrink-0 flex items-center gap-1">
+          <span>📊 Métricas</span>
         </button>
         <button data-tab="parity" id="tabParityBtn"
           title="Ver reporte de comparación y diferencias con la base de datos de producción"
-          class="tab-btn hidden text-xs font-medium px-2.5 py-2 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex-shrink-0">
-          Paridad
+          class="tab-btn hidden text-xs font-medium px-2.5 py-2 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex-shrink-0 flex items-center gap-1">
+          <span>⚖️ Paridad</span>
         </button>
       </div>
 
@@ -259,7 +303,7 @@
       <div class="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
 
         <!-- Tab: Descarga & Build (NUEVO) -->
-        <div id="tabBuild" class="tab-pane hidden space-y-4">
+        <div id="tabBuild" class="tab-pane space-y-4">
 
           <!-- Banner de ubicación real de descargas -->
           <div class="bg-slate-900/90 border border-slate-700/60 rounded-lg p-2.5 text-[11px] space-y-1.5">
@@ -450,6 +494,54 @@
               </div>
             </div>
 
+            <!-- Tipos de Vías a Incluir (Filtro de Ruteo) -->
+            <div class="space-y-1.5 pt-2 border-t border-slate-700/40">
+              <div class="flex items-center justify-between">
+                <label class="text-[11px] text-slate-300 font-semibold flex items-center gap-1.5"
+                  title="Selecciona qué tipos de vía de OpenStreetMap formarán la red vial (.gpkg). Las vías no seleccionadas se descartan durante la construcción.">
+                  <span>🛣️</span> Tipos de Vías a Incluir
+                  <span id="buildHighwaysCountBadge" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-indigo-950/80 text-indigo-400 border border-indigo-800/40">9 selecc.</span>
+                </label>
+                <div class="flex items-center gap-1">
+                  <button type="button" id="btnPresetStandardVehicular"
+                    title="🚗 Red vehicular estándar recomendada: autopistas hasta residenciales. Excluye vías de servicio y huellas para evitar atajos por parqueaderos o trochas"
+                    class="text-emerald-400 hover:text-emerald-300 text-[10px] font-medium bg-emerald-950/60 border border-emerald-800/50 px-1.5 py-0.5 rounded transition">
+                    🚗 Vehicular
+                  </button>
+                  <button type="button" id="btnPresetSherpa"
+                    title="🚛 Perfil SherpaSlb completo (las 9 vías estándar de SherpaSlb, incluyendo servicio y huellas de tierra)"
+                    class="text-indigo-400 hover:text-indigo-300 text-[10px] font-medium bg-indigo-950/60 border border-indigo-800/50 px-1.5 py-0.5 rounded transition">
+                    🚛 Sherpa (9)
+                  </button>
+                  <button type="button" id="btnPresetMainOnly"
+                    title="🛣️ Solo vías rápidas y principales (motorway, trunk, primary, secondary)"
+                    class="text-amber-400 hover:text-amber-300 text-[10px] font-medium bg-amber-950/60 border border-amber-800/50 px-1.5 py-0.5 rounded transition">
+                    🛣️ Principales
+                  </button>
+                </div>
+              </div>
+
+              <!-- Explicación amigable y botones de acción rápida -->
+              <div class="flex items-center justify-between text-[10px] text-slate-400">
+                <span>Define las vías aptas para algoritmos de ruteo:</span>
+                <div class="flex items-center gap-1.5 text-[10px]">
+                  <button type="button" id="btnBuildHwSelectAll" class="text-slate-400 hover:text-white underline">Todas</button>
+                  <span>•</span>
+                  <button type="button" id="btnBuildHwDeselectAll" class="text-slate-400 hover:text-white underline">Ninguna</button>
+                </div>
+              </div>
+
+              <!-- Cuadrícula de checkboxes de vías -->
+              <div id="buildHighwaysContainer" class="grid grid-cols-2 gap-1.5 p-2 bg-slate-900/90 border border-slate-700/60 rounded-lg text-[11px] max-h-56 overflow-y-auto">
+                <!-- Se llena dinámicamente con BUILD_HIGHWAY_CATALOG -->
+              </div>
+
+              <!-- Advertencia contextual dinámica sobre service / track -->
+              <div id="buildHighwaysNotice" class="text-[10px] px-2 py-1 rounded bg-slate-950/60 border border-slate-800 text-slate-400">
+                <!-- Actualizado por JS -->
+              </div>
+            </div>
+
             <!-- Botón de Ejecutar Build (con pre-confirmación) -->
             <button id="btnStartBuild" title="🚀 Revisar parámetros y confirmar la construcción del GeoPackage (.gpkg)"
               class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-3 rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow-md">
@@ -473,8 +565,171 @@
 
         </div>
 
-        <!-- Tab 1: Métricas -->
-        <div id="tabMetrics" class="tab-pane space-y-4">
+        <!-- Tab 2: Capas & Filtros -->
+        <div id="tabLayers" class="tab-pane hidden space-y-4">
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">Tipo de Vía Visible</h3>
+              <div class="flex items-center gap-1.5 text-[10px]">
+                <button type="button" id="btnCheckAllHighways" class="text-emerald-400 hover:underline font-medium">Todas</button>
+                <span class="text-slate-600">•</span>
+                <button type="button" id="btnUncheckAllHighways" class="text-slate-400 hover:text-white hover:underline">Ninguna</button>
+              </div>
+            </div>
+            <div class="space-y-1 max-h-60 overflow-y-auto pr-1" id="highwayCheckboxes">
+              <!-- Se generan dinámicamente con nomenclaturas claras -->
+            </div>
+          </div>
+
+          <!-- Panel Interactivo de Sentido de Circulación -->
+          <div class="bg-slate-900/90 border border-slate-700/60 rounded-xl p-3 space-y-2.5 text-xs">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+              <h4 class="font-semibold text-slate-300 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+                <span>🔄</span> Sentido de Circulación
+              </h4>
+              <span id="badgeColorMode"
+                class="text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-300 border border-slate-700">
+                Tipo de Vía
+              </span>
+            </div>
+
+            <!-- Selector de Modo de Coloreo -->
+            <div class="space-y-1">
+              <span class="text-[10px] text-slate-400 block font-medium">Modo de Coloreo del Mapa:</span>
+              <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-950 rounded-lg border border-slate-800 text-[11px]">
+                <button type="button" id="btnModeHighway"
+                  class="py-1 px-2 rounded font-medium transition text-center bg-slate-800 text-emerald-400 border border-slate-700 shadow-sm flex items-center justify-center gap-1">
+                  <span>🛣️</span> Por Tipo Vía
+                </button>
+                <button type="button" id="btnModeDirection"
+                  class="py-1 px-2 rounded font-medium transition text-center text-slate-400 hover:text-white border border-transparent flex items-center justify-center gap-1">
+                  <span>⇄</span> Por Sentido
+                </button>
+              </div>
+            </div>
+
+            <!-- Filtros de visibilidad por sentido -->
+            <div class="space-y-1.5 pt-1">
+              <label class="flex items-center justify-between p-1.5 rounded hover:bg-slate-800/60 cursor-pointer transition">
+                <div class="flex items-center gap-2">
+                  <input type="checkbox" id="chkShowTwoWay" checked
+                    class="rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-0" />
+                  <span class="flex items-center gap-2 font-medium text-slate-200 text-[11px]">
+                    <span class="w-6 h-1.5 rounded-full bg-emerald-400 shadow-sm flex-shrink-0 inline-block"></span>
+                    <span>Doble Sentido <b class="text-emerald-400">⇄</b></span>
+                  </span>
+                </div>
+                <span class="text-[10px] text-emerald-400 font-semibold" id="twoWayStatsCount">Trazo grueso sólido</span>
+              </label>
+
+              <label class="flex items-center justify-between p-1.5 rounded hover:bg-slate-800/60 cursor-pointer transition">
+                <div class="flex items-center gap-2">
+                  <input type="checkbox" id="chkShowOneWay" checked
+                    class="rounded bg-slate-800 border-slate-700 text-amber-500 focus:ring-0" />
+                  <span class="flex items-center gap-2 font-medium text-slate-200 text-[11px]">
+                    <span class="w-6 h-1 rounded-full bg-amber-400/80 border border-amber-300 flex-shrink-0 inline-block"></span>
+                    <span>Sentido Único <b class="text-amber-400">➔</b></span>
+                  </span>
+                </div>
+                <span class="text-[10px] text-amber-300 font-semibold flex items-center gap-1" id="oneWayStatsCount">
+                  <span>Con flechas</span> <span class="text-xs">▸▸</span>
+                </span>
+              </label>
+            </div>
+
+            <div class="p-2 rounded bg-slate-950/80 border border-slate-800 text-[10px] text-slate-400 space-y-1">
+              <div class="flex items-center gap-1.5 text-slate-300">
+                <span class="text-amber-300 font-bold">▸</span>
+                <span><b>Flechas direccionales:</b> Indican el flujo vehicular en vías de sentido único (zoom ≥ 12).</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-slate-300">
+                <span class="text-emerald-400 font-bold">⇄</span>
+                <span><b>Vías sin flechas y doble grosor:</b> Vías transitables en ambos sentidos.</span>
+              </div>
+            </div>
+
+            <button type="button" id="btnFlyToOnewayExample2"
+              class="w-full mt-1 bg-amber-600/90 hover:bg-amber-500 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-[11px] transition flex items-center justify-center gap-1.5 shadow">
+              <span>🎯</span> Ver ejemplo de vías sentido único
+            </button>
+          </div>
+
+          <hr class="border-slate-800" />
+
+          <div class="space-y-2">
+            <h3 class="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">Elementos Adicionales</h3>
+            <label class="flex items-center gap-2 cursor-pointer text-slate-300"
+              title="Demarcación visual con recuadro luminoso que delimita el alcance geográfico de la red vial cargada">
+              <input type="checkbox" id="chkShowNetworkBoundary" checked
+                class="rounded bg-slate-800 border-slate-700 text-cyan-500 focus:ring-0" />
+              <div class="flex items-center justify-between w-full pr-1">
+                <span class="flex items-center gap-1.5 font-medium text-cyan-300">
+                  <span class="inline-block w-2.5 h-2.5 rounded-sm border border-cyan-400 bg-cyan-500/20"></span>
+                  Demarcación de límites de red
+                </span>
+                <span id="boundaryDimensionsBadge" class="text-[10px] text-slate-400 font-mono"></span>
+              </div>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-slate-300"
+              title="Muestra puntos verdes interactivos en cada nodo topológico de la red cuando el zoom es 14 o mayor">
+              <input type="checkbox" id="chkShowNodes"
+                class="rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-0" />
+              <span>Mostrar Nodos de Conexión (zoom ≥ 14)</span>
+            </label>
+          </div>
+
+          <hr class="border-slate-800" />
+
+          <div class="space-y-2">
+            <h3 class="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">Estilo de Mapa Base</h3>
+            <div class="grid grid-cols-2 gap-2" id="basemapSelectors">
+              <button data-basemap="dark"
+                title="Tema vectorial oscuro CartoDB Dark Matter, ideal para destacar las carreteras de colores"
+                class="basemap-btn bg-slate-800/50 border border-slate-700 text-slate-300 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
+                <span class="font-medium block text-xs">🌙 Oscuro</span>
+                <span class="text-[10px] text-slate-400">CartoDB Dark</span>
+              </button>
+              <button data-basemap="positron"
+                title="Tema vectorial claro CartoDB Positron con fondo blanco para máximo contraste diurno"
+                class="basemap-btn bg-slate-800/50 border border-slate-700 text-slate-300 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
+                <span class="font-medium block text-xs">☀️ Claro</span>
+                <span class="text-[10px] text-slate-400">CartoDB Positron</span>
+              </button>
+              <button data-basemap="satellite"
+                title="Ortofoto satelital de alta resolución y limpia de Esri World Imagery"
+                class="basemap-btn bg-slate-800/50 border border-slate-700 text-slate-300 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
+                <span class="font-medium block text-xs">🛰️ Satelital</span>
+                <span class="text-[10px] text-slate-400">Esri World Imagery</span>
+              </button>
+              <button data-basemap="hybrid"
+                title="Fotografía satelital combinada con etiquetas de calles, pueblos y lugares de Google Maps"
+                class="basemap-btn active bg-slate-800 border border-emerald-500 text-emerald-400 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
+                <span class="font-medium block text-xs">🌍 Híbrido</span>
+                <span class="text-[10px] text-slate-400">Satélite + Etiquetas</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Atribuciones y Licencias de Uso -->
+          <div class="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 text-[10px] text-slate-400 space-y-1">
+            <span class="text-slate-300 font-semibold block flex items-center gap-1">
+              <span>⚖️</span> Atribución y Normas de Uso
+            </span>
+            <p>
+              • <b>Datos viales:</b> <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">© Colaboradores de OpenStreetMap</a> bajo licencia abierta ODbL.
+            </p>
+            <p>
+              • <b>Extractos PBF:</b> Descargados vía <a href="https://www.geofabrik.de/" target="_blank" rel="noopener" class="text-cyan-400 hover:underline">Geofabrik GmbH</a>.
+            </p>
+            <p>
+              • <b>Mapas e imágenes base:</b> Google Maps (Híbrido) • Esri World Imagery (Satélite) • CARTO (Vectorial).
+            </p>
+          </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Métricas -->
+        <div id="tabMetrics" class="tab-pane hidden space-y-4">
           <!-- Ubicación física del archivo seleccionado y carpeta output -->
           <div class="bg-slate-900/90 border border-slate-700/60 rounded-lg p-2.5 text-[11px] space-y-1.5">
             <div class="flex items-center justify-between">
@@ -557,97 +812,6 @@
           </div>
         </div>
 
-        <!-- Tab 2: Capas & Filtros -->
-        <div id="tabLayers" class="tab-pane hidden space-y-4">
-          <div class="space-y-2">
-            <h3 class="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">Tipo de Vía Visible</h3>
-            <div class="space-y-1.5" id="highwayCheckboxes">
-              <!-- Se generan dinámicamente -->
-            </div>
-          </div>
-
-          <!-- Guía Visual de Sentido de Circulación -->
-          <div class="bg-slate-900/90 border border-slate-700/60 rounded-lg p-2.5 space-y-1.5 text-[11px]"
-            title="Diferenciación visual entre vías de doble sentido y sentido único">
-            <h4 class="font-semibold text-slate-300 uppercase tracking-wider text-[10px] flex items-center gap-1">
-              <span>🔄</span> Sentido de Circulación
-            </h4>
-            <div class="space-y-1 text-slate-300 text-[11px]">
-              <div class="flex items-center justify-between">
-                <span class="flex items-center gap-2">
-                  <span class="w-6 h-1.5 rounded-full bg-emerald-400 shadow-sm flex-shrink-0"></span>
-                  <span><b>Doble Sentido:</b></span>
-                </span>
-                <span class="text-emerald-400 font-semibold text-[10px]">Tono fuerte & sólido</span>
-              </div>
-              <div class="flex items-center justify-between">
-                <span class="flex items-center gap-2">
-                  <span
-                    class="w-6 h-1 rounded-full bg-emerald-300/50 border border-emerald-400/30 flex-shrink-0"></span>
-                  <span><b>Sentido Único:</b></span>
-                </span>
-                <span class="text-slate-400 text-[10px]">Tonalidad suave</span>
-              </div>
-            </div>
-          </div>
-
-          <hr class="border-slate-800" />
-
-          <div class="space-y-2">
-            <h3 class="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">Elementos Adicionales</h3>
-            <label class="flex items-center gap-2 cursor-pointer text-slate-300"
-              title="Demarcación visual con recuadro luminoso que delimita el alcance geográfico de la red vial cargada">
-              <input type="checkbox" id="chkShowNetworkBoundary" checked
-                class="rounded bg-slate-800 border-slate-700 text-cyan-500 focus:ring-0" />
-              <div class="flex items-center justify-between w-full pr-1">
-                <span class="flex items-center gap-1.5 font-medium text-cyan-300">
-                  <span class="inline-block w-2.5 h-2.5 rounded-sm border border-cyan-400 bg-cyan-500/20"></span>
-                  Demarcación de límites de red
-                </span>
-                <span id="boundaryDimensionsBadge" class="text-[10px] text-slate-400 font-mono"></span>
-              </div>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer text-slate-300"
-              title="Muestra puntos verdes interactivos en cada nodo topológico de la red cuando el zoom es 14 o mayor">
-              <input type="checkbox" id="chkShowNodes"
-                class="rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-0" />
-              <span>Mostrar Nodos de Conexión (zoom ≥ 14)</span>
-            </label>
-          </div>
-
-          <hr class="border-slate-800" />
-
-          <div class="space-y-2">
-            <h3 class="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">Estilo de Mapa Base</h3>
-            <div class="grid grid-cols-2 gap-2" id="basemapSelectors">
-              <button data-basemap="dark"
-                title="Tema vectorial oscuro CartoDB Dark Matter, ideal para destacar las carreteras de colores"
-                class="basemap-btn active bg-slate-800 border border-emerald-500 text-emerald-400 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
-                <span class="font-medium block text-xs">🌙 Oscuro</span>
-                <span class="text-[10px] text-slate-400">CartoDB Dark</span>
-              </button>
-              <button data-basemap="positron"
-                title="Tema vectorial claro CartoDB Positron con fondo blanco para máximo contraste diurno"
-                class="basemap-btn bg-slate-800/50 border border-slate-700 text-slate-300 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
-                <span class="font-medium block text-xs">☀️ Claro</span>
-                <span class="text-[10px] text-slate-400">CartoDB Positron</span>
-              </button>
-              <button data-basemap="satellite"
-                title="Ortofoto satelital de alta resolución y limpia de Esri World Imagery"
-                class="basemap-btn bg-slate-800/50 border border-slate-700 text-slate-300 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
-                <span class="font-medium block text-xs">🛰️ Satelital</span>
-                <span class="text-[10px] text-slate-400">Esri World Imagery</span>
-              </button>
-              <button data-basemap="hybrid"
-                title="Fotografía satelital combinada con etiquetas de calles, pueblos y lugares de Google Maps"
-                class="basemap-btn bg-slate-800/50 border border-slate-700 text-slate-300 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
-                <span class="font-medium block text-xs">🌍 Híbrido</span>
-                <span class="text-[10px] text-slate-400">Satélite + Etiquetas</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
         <!-- Tab 3: Paridad / Diff -->
         <div id="tabParity" class="tab-pane hidden space-y-3">
           <div id="parityContent" class="space-y-2">
@@ -661,24 +825,50 @@
       <div class="p-3 bg-slate-950/60 border-t border-slate-800 flex flex-wrap gap-2 text-[10px] text-slate-400">
         <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
           Autopista</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+          Troncal</span>
         <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
           Primaria</span>
         <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
           Secundaria</span>
         <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
           Terciaria</span>
-        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-slate-300"></span>
           Residencial</span>
+        <span class="flex items-center gap-1" title="Vías de servicio, accesos a parqueaderos, gasolineras y áreas de carga"><span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+          Servicio</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-stone-500"></span>
+          Pista</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+          Rural</span>
       </div>
 
     </aside>
 
-    <!-- Zoom & Coords Helper -->
-    <div
-      class="absolute bottom-4 right-4 bg-slate-900/80 backdrop-blur border border-slate-800 rounded-lg px-2.5 py-1 text-[11px] text-slate-400 z-10 flex items-center gap-2">
-      <span id="zoomDisplay">Zoom: --</span>
-      <span>•</span>
-      <span id="coordsDisplay">Lon, Lat</span>
+    <!-- Barra de Atribución, Zoom y Coordenadas en el pie del mapa -->
+    <div id="mapAttributionBar"
+      class="absolute bottom-3 right-3 bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded-lg px-2.5 py-1 text-[10px] text-slate-400 z-10 flex flex-wrap items-center gap-2 shadow-2xl select-none">
+      <div class="flex items-center gap-1.5 font-mono text-[10px] text-slate-300 border-r border-slate-800 pr-2">
+        <span id="zoomDisplay">Zoom: --</span>
+        <span class="text-slate-600">•</span>
+        <span id="coordsDisplay">Lon, Lat</span>
+      </div>
+      <div id="attributionLinks" class="flex items-center gap-1.5 text-slate-400 text-[10px]">
+        <span id="basemapAttributionLabel" class="text-slate-300 font-medium">© Google Maps</span>
+        <span class="text-slate-600">|</span>
+        <span>Datos viales:</span>
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener"
+          title="OpenStreetMap: Datos abiertos licenciados bajo Open Database License (ODbL)"
+          class="text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-0.5 font-medium">
+          <span>© OpenStreetMap</span>
+        </a>
+        <span class="text-slate-600">|</span>
+        <a href="https://www.geofabrik.de/" target="_blank" rel="noopener"
+          title="Geofabrik: Servidor de extractos y descargas OSM"
+          class="text-cyan-400 hover:text-cyan-300 hover:underline">
+          Geofabrik
+        </a>
+      </div>
     </div>
   </div>
 
@@ -735,6 +925,16 @@
           </div>
           <div id="confirmBboxDetails" class="font-mono text-[11px] text-slate-300"></div>
           <div id="confirmBufferDetails" class="text-[10px] text-slate-400"></div>
+        </div>
+
+        <!-- Tipos de Vías a Extraer -->
+        <div id="confirmHighwaysContainer" class="bg-slate-950/70 border border-slate-800 p-2.5 rounded-lg space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">5. Tipos de Vías en la Red</span>
+            <span id="confirmHighwaysBadge" class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-400 border border-indigo-800/60">--</span>
+          </div>
+          <div id="confirmHighwaysList" class="flex flex-wrap gap-1 text-[10px] max-h-24 overflow-y-auto"></div>
+          <div id="confirmHighwaysWarning" class="text-[10px]"></div>
         </div>
 
         <!-- Advertencia si no hay BBox -->
@@ -836,6 +1036,24 @@
       'unclassified': '#64748b'
     };
 
+    // Nomenclatura oficial y descriptiva en español para cada tipo de vía OpenStreetMap
+    const HIGHWAY_LABELS = {
+      'motorway': 'Autopista',
+      'motorway_link': 'Enlace Autopista',
+      'trunk': 'Vía Troncal',
+      'trunk_link': 'Enlace Troncal',
+      'primary': 'Vía Primaria',
+      'primary_link': 'Enlace Primario',
+      'secondary': 'Vía Secundaria',
+      'secondary_link': 'Enlace Secundario',
+      'tertiary': 'Vía Terciaria',
+      'tertiary_link': 'Enlace Terciario',
+      'residential': 'Vía Residencial',
+      'service': 'Vía de Servicio / Acceso',
+      'track': 'Pista / Sendero Rural',
+      'unclassified': 'Vía Rural / No Clasificada'
+    };
+
     const BASEMAPS = {
       dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
       positron: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
@@ -887,7 +1105,7 @@
       }
     };
 
-    let currentBasemap = 'dark';
+    let currentBasemap = 'hybrid';
     let activeGpkg = '';
     let currentMetadata = null;
     let abortController = null;
@@ -899,14 +1117,17 @@
     let showNetworkBoundary = true;
     let currentNetworkBoundsGeoJson = { type: 'FeatureCollection', features: [] };
     let currentNetworkCornersGeoJson = { type: 'FeatureCollection', features: [] };
+    let colorMode = 'highway'; // 'highway' | 'direction'
     let interactionsInitialized = false;
+    let hasInitializedStartupTab = false;
 
     // Inicializar mapa MapLibre
     const map = new maplibregl.Map({
       container: 'map',
       style: BASEMAPS[currentBasemap],
       center: [-64.0, -34.0], // Centro Argentina / Sudamérica
-      zoom: 5
+      zoom: 5,
+      attributionControl: false
     });
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
@@ -989,6 +1210,197 @@
         updateViewportData();
       }, 200);
     });
+
+    function ensureOnewayArrowIcon(targetMap, isSat) {
+      const iconId = isSat ? 'oneway-arrow-sat' : 'oneway-arrow-vec';
+      if (targetMap.hasImage(iconId)) return iconId;
+
+      const size = 20;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = isSat ? '#ffffff' : '#fbbf24';
+      ctx.strokeStyle = isSat ? '#000000' : '#0f172a';
+      ctx.lineWidth = 2.5;
+      ctx.lineJoin = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(3, 4);
+      ctx.lineTo(16, 10);
+      ctx.lineTo(3, 16);
+      ctx.lineTo(6, 10);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.fill();
+
+      targetMap.addImage(iconId, ctx.getImageData(0, 0, size, size));
+      return iconId;
+    }
+
+    function getDirectionFilter() {
+      const chkTwo = document.getElementById('chkShowTwoWay');
+      const chkOne = document.getElementById('chkShowOneWay');
+      const showTwo = chkTwo ? chkTwo.checked : true;
+      const showOne = chkOne ? chkOne.checked : true;
+
+      if (showTwo && showOne) {
+        return null;
+      } else if (showTwo && !showOne) {
+        return ['==', ['boolean', ['get', 'is_oneway'], false], false];
+      } else if (!showTwo && showOne) {
+        return ['==', ['boolean', ['get', 'is_oneway'], false], true];
+      } else {
+        return ['==', ['get', 'fid'], -1];
+      }
+    }
+
+    function getArrowsFilter() {
+      const chkOne = document.getElementById('chkShowOneWay');
+      const showOne = chkOne ? chkOne.checked : true;
+      if (!showOne) return ['==', ['get', 'fid'], -1];
+      return ['==', ['boolean', ['get', 'is_oneway'], false], true];
+    }
+
+    function applyDirectionFilters() {
+      const lineFilter = getDirectionFilter();
+      const arrowsFilter = getArrowsFilter();
+      if (map.getLayer('segments-line')) map.setFilter('segments-line', lineFilter);
+      if (map.getLayer('segments-glow')) map.setFilter('segments-glow', lineFilter);
+      if (map.getLayer('segments-oneway-arrows')) map.setFilter('segments-oneway-arrows', arrowsFilter);
+    }
+
+    function updateSegmentStyling() {
+      if (!map.getLayer('segments-line')) return;
+
+      const isSat = currentBasemap === 'satellite' || currentBasemap === 'hybrid';
+      const iconId = ensureOnewayArrowIcon(map, isSat);
+      if (map.getLayer('segments-oneway-arrows')) {
+        map.setLayoutProperty('segments-oneway-arrows', 'icon-image', iconId);
+      }
+
+      if (colorMode === 'direction') {
+        map.setPaintProperty('segments-line', 'line-color', [
+          'case',
+          ['boolean', ['get', 'is_oneway'], false],
+          '#f59e0b', // Sentido único (ámbar eléctrico)
+          '#10b981'  // Doble sentido (verde esmeralda vibrante)
+        ]);
+        map.setPaintProperty('segments-line', 'line-opacity', [
+          'case',
+          ['boolean', ['get', 'is_oneway'], false],
+          0.85,
+          1.0
+        ]);
+      } else {
+        map.setPaintProperty('segments-line', 'line-color', [
+          'case',
+          ['boolean', ['get', 'is_oneway'], false],
+          [
+            'match',
+            ['get', 'highway'],
+            'motorway', HIGHWAY_COLORS_ONEWAY.motorway,
+            'motorway_link', HIGHWAY_COLORS_ONEWAY.motorway_link,
+            'trunk', HIGHWAY_COLORS_ONEWAY.trunk,
+            'trunk_link', HIGHWAY_COLORS_ONEWAY.trunk_link,
+            'primary', HIGHWAY_COLORS_ONEWAY.primary,
+            'primary_link', HIGHWAY_COLORS_ONEWAY.primary_link,
+            'secondary', HIGHWAY_COLORS_ONEWAY.secondary,
+            'secondary_link', HIGHWAY_COLORS_ONEWAY.secondary_link,
+            'tertiary', HIGHWAY_COLORS_ONEWAY.tertiary,
+            'tertiary_link', HIGHWAY_COLORS_ONEWAY.tertiary_link,
+            'residential', HIGHWAY_COLORS_ONEWAY.residential,
+            'service', HIGHWAY_COLORS_ONEWAY.service,
+            'track', HIGHWAY_COLORS_ONEWAY.track,
+            'unclassified', HIGHWAY_COLORS_ONEWAY.unclassified,
+            '#94a3b8'
+          ],
+          [
+            'match',
+            ['get', 'highway'],
+            'motorway', HIGHWAY_COLORS.motorway,
+            'motorway_link', HIGHWAY_COLORS.motorway_link,
+            'trunk', HIGHWAY_COLORS.trunk,
+            'trunk_link', HIGHWAY_COLORS.trunk_link,
+            'primary', HIGHWAY_COLORS.primary,
+            'primary_link', HIGHWAY_COLORS.primary_link,
+            'secondary', HIGHWAY_COLORS.secondary,
+            'secondary_link', HIGHWAY_COLORS.secondary_link,
+            'tertiary', HIGHWAY_COLORS.tertiary,
+            'tertiary_link', HIGHWAY_COLORS.tertiary_link,
+            'residential', HIGHWAY_COLORS.residential,
+            'service', HIGHWAY_COLORS.service,
+            'track', HIGHWAY_COLORS.track,
+            'unclassified', HIGHWAY_COLORS.unclassified,
+            '#64748b'
+          ]
+        ]);
+        map.setPaintProperty('segments-line', 'line-opacity', [
+          'case',
+          ['boolean', ['get', 'is_oneway'], false],
+          0.60,
+          1.0
+        ]);
+      }
+
+      map.setPaintProperty('segments-line', 'line-width', [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        6, ['case', ['boolean', ['get', 'is_oneway'], false], 1.1, 2.0],
+        12, ['case', ['boolean', ['get', 'is_oneway'], false], 2.2, 3.8],
+        16, ['case', ['boolean', ['get', 'is_oneway'], false], 3.6, 6.0]
+      ]);
+
+      applyDirectionFilters();
+    }
+
+    function setColorMode(mode) {
+      colorMode = mode;
+      const btnModeHw = document.getElementById('btnModeHighway');
+      const btnModeDir = document.getElementById('btnModeDirection');
+      const badge = document.getElementById('badgeColorMode');
+      const quickLbl = document.getElementById('quickColorModeLabel');
+      const quickIcon = document.getElementById('quickColorModeIcon');
+      const dirWidget = document.getElementById('directionFloatingWidget');
+
+      if (mode === 'direction') {
+        if (dirWidget) dirWidget.classList.remove('hidden');
+        if (btnModeHw) {
+          btnModeHw.classList.remove('bg-slate-800', 'text-emerald-400', 'border-slate-700', 'shadow-sm');
+          btnModeHw.classList.add('text-slate-400', 'border-transparent');
+        }
+        if (btnModeDir) {
+          btnModeDir.classList.add('bg-slate-800', 'text-amber-400', 'border-slate-700', 'shadow-sm');
+          btnModeDir.classList.remove('text-slate-400', 'border-transparent');
+        }
+        if (badge) {
+          badge.textContent = 'Por Sentido (⇄)';
+          badge.className = 'text-[10px] px-2 py-0.5 rounded font-mono bg-amber-950/80 text-amber-300 border border-amber-800/60';
+        }
+        if (quickLbl) quickLbl.textContent = 'Sentido';
+        if (quickIcon) quickIcon.textContent = '⇄';
+      } else {
+        if (dirWidget) dirWidget.classList.add('hidden');
+        if (btnModeDir) {
+          btnModeDir.classList.remove('bg-slate-800', 'text-amber-400', 'border-slate-700', 'shadow-sm');
+          btnModeDir.classList.add('text-slate-400', 'border-transparent');
+        }
+        if (btnModeHw) {
+          btnModeHw.classList.add('bg-slate-800', 'text-emerald-400', 'border-slate-700', 'shadow-sm');
+          btnModeHw.classList.remove('text-slate-400', 'border-transparent');
+        }
+        if (badge) {
+          badge.textContent = 'Tipo de Vía';
+          badge.className = 'text-[10px] px-2 py-0.5 rounded font-mono bg-slate-800 text-slate-300 border border-slate-700';
+        }
+        if (quickLbl) quickLbl.textContent = 'Tipo Vía';
+        if (quickIcon) quickIcon.textContent = '🛣️';
+      }
+
+      updateSegmentStyling();
+    }
 
     function setupMapLayers() {
       // Fuente GeoJSON de segmentos
@@ -1079,16 +1491,38 @@
               'interpolate',
               ['linear'],
               ['zoom'],
-              6, ['case', ['boolean', ['get', 'is_oneway'], false], 1.1, 1.8],
-              12, ['case', ['boolean', ['get', 'is_oneway'], false], 2.0, 3.2],
-              16, ['case', ['boolean', ['get', 'is_oneway'], false], 3.4, 5.2]
+              6, ['case', ['boolean', ['get', 'is_oneway'], false], 1.1, 2.0],
+              12, ['case', ['boolean', ['get', 'is_oneway'], false], 2.2, 3.8],
+              16, ['case', ['boolean', ['get', 'is_oneway'], false], 3.6, 6.0]
             ],
             'line-opacity': [
               'case',
               ['boolean', ['get', 'is_oneway'], false],
-              0.55, // Tonalidad más suave y ligera para sentido único
-              1.0   // Tono fuerte y sólido para doble sentido
+              0.60,
+              1.0
             ]
+          }
+        });
+      }
+
+      // Capa de flechas direccionales para vías de sentido único
+      const arrowIconId = ensureOnewayArrowIcon(map, isSat);
+      if (!map.getLayer('segments-oneway-arrows')) {
+        map.addLayer({
+          id: 'segments-oneway-arrows',
+          type: 'symbol',
+          source: 'segments',
+          filter: getArrowsFilter(),
+          minzoom: 12,
+          layout: {
+            'symbol-placement': 'line',
+            'symbol-spacing': ['interpolate', ['linear'], ['zoom'], 12, 110, 15, 75, 18, 50],
+            'icon-image': arrowIconId,
+            'icon-size': ['interpolate', ['linear'], ['zoom'], 12, 0.45, 15, 0.70, 18, 0.95],
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+            'icon-rotation-alignment': 'map',
+            'icon-keep-upright': false
           }
         });
       }
@@ -1155,7 +1589,7 @@
           },
           paint: {
             'fill-color': '#06b6d4',
-            'fill-opacity': isSat ? 0.08 : 0.04
+            'fill-opacity': 0 // Sin sombrear la zona interior, delimitando únicamente los bordes
           }
         });
       }
@@ -1222,53 +1656,69 @@
       setupInteractions();
     }
 
+    function showSegmentPopup(feature, lngLat) {
+      const p = feature.properties;
+      const isOne = Boolean(p.is_oneway);
+      let color;
+      if (colorMode === 'direction') {
+        color = isOne ? '#f59e0b' : '#10b981';
+      } else {
+        color = isOne ? (HIGHWAY_COLORS_ONEWAY[p.highway] || '#64748b') : (HIGHWAY_COLORS[p.highway] || '#64748b');
+      }
+
+      const html = `
+        <div class="space-y-2 text-xs">
+          <div class="flex items-center justify-between gap-2 border-b border-slate-700/60 pb-1.5">
+            <span class="font-bold text-sm text-white">${p.name || '<span class="text-slate-500 italic">Sin nombre</span>'}</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-semibold text-white uppercase" style="background-color: ${color}cc">${HIGHWAY_LABELS[p.highway] || p.highway}</span>
+          </div>
+          <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-slate-300">
+            <div><span class="text-slate-500">Longitud:</span> <span class="font-medium text-white">${p.length_m} m</span></div>
+            <div><span class="text-slate-500">Costo:</span> <span class="font-medium text-white">${p.travel_cost}</span></div>
+            <div class="col-span-2 flex items-center justify-between py-1 px-1.5 bg-slate-950/80 rounded border border-slate-800">
+              <span class="text-slate-400">Sentido:</span> 
+              <span class="font-bold text-xs ${isOne ? 'text-amber-400' : 'text-emerald-400'} flex items-center gap-1">
+                ${isOne ? '<span>Único ➔</span> <span class="text-[10px] font-normal text-amber-300/80">(Una sola vía)</span>' : '<span>Doble vía ⇄</span> <span class="text-[10px] font-normal text-emerald-300/80">(Bidireccional)</span>'}
+              </span>
+            </div>
+            <div><span class="text-slate-500">Vel. máx:</span> <span class="font-medium text-white">${p.max_speed ? p.max_speed + ' km/h' : 'N/D'}</span></div>
+            <div><span class="text-slate-500">Carriles:</span> <span class="font-medium text-white">${p.lanes ?? 'N/D'}</span></div>
+            <div><span class="text-slate-500">Fid:</span> <span class="font-mono text-slate-400">#${p.fid}</span></div>
+          </div>
+          <div class="pt-1.5 border-t border-slate-800 flex items-center justify-between text-[11px]">
+            <span class="text-slate-500 font-mono">From ${p.from_key} ➔ To ${p.to_key}</span>
+            ${p.osm_id ? `<a href="https://www.openstreetmap.org/way/${p.osm_id}" target="_blank" class="text-emerald-400 hover:underline flex items-center gap-1 font-medium">OSM #${p.osm_id} ↗</a>` : ''}
+          </div>
+        </div>
+      `;
+
+      new maplibregl.Popup({ maxWidth: '320px' })
+        .setLngLat(lngLat)
+        .setHTML(html)
+        .addTo(map);
+    }
+
     function setupInteractions() {
       if (interactionsInitialized) return;
       interactionsInitialized = true;
 
-      // Interacción: Popup al hacer click en un segmento
+      // Interacción: Popup al hacer click en un segmento o en sus flechas
       map.on('click', 'segments-line', (e) => {
         if (isDrawingBbox) return;
         if (!e.features || !e.features[0]) return;
-        const p = e.features[0].properties;
-        const isOne = Boolean(p.is_oneway);
-        const color = isOne ? (HIGHWAY_COLORS_ONEWAY[p.highway] || '#64748b') : (HIGHWAY_COLORS[p.highway] || '#64748b');
-
-        const html = `
-          <div class="space-y-2 text-xs">
-            <div class="flex items-center justify-between gap-2 border-b border-slate-700/60 pb-1.5">
-              <span class="font-bold text-sm text-white">${p.name || '<span class="text-slate-500 italic">Sin nombre</span>'}</span>
-              <span class="px-2 py-0.5 rounded text-[10px] font-semibold text-white uppercase" style="background-color: ${color}cc">${p.highway}</span>
-            </div>
-            <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-slate-300">
-              <div><span class="text-slate-500">Longitud:</span> <span class="font-medium text-white">${p.length_m} m</span></div>
-              <div><span class="text-slate-500">Costo:</span> <span class="font-medium text-white">${p.travel_cost}</span></div>
-              <div>
-                <span class="text-slate-500">Sentido:</span> 
-                <span class="font-semibold ${isOne ? 'text-amber-300' : 'text-emerald-400'}">
-                  ${isOne ? 'Único ➔' : 'Doble vía ⇄'}
-                </span>
-              </div>
-              <div><span class="text-slate-500">Vel. máx:</span> <span class="font-medium text-white">${p.max_speed ? p.max_speed + ' km/h' : 'N/D'}</span></div>
-              <div><span class="text-slate-500">Carriles:</span> <span class="font-medium text-white">${p.lanes ?? 'N/D'}</span></div>
-              <div><span class="text-slate-500">Fid:</span> <span class="font-mono text-slate-400">#${p.fid}</span></div>
-            </div>
-            <div class="pt-1.5 border-t border-slate-800 flex items-center justify-between text-[11px]">
-              <span class="text-slate-500 font-mono">From ${p.from_key} ➔ To ${p.to_key}</span>
-              ${p.osm_id ? `<a href="https://www.openstreetmap.org/way/${p.osm_id}" target="_blank" class="text-emerald-400 hover:underline flex items-center gap-1 font-medium">OSM #${p.osm_id} ↗</a>` : ''}
-            </div>
-          </div>
-        `;
-
-        new maplibregl.Popup({ maxWidth: '320px' })
-          .setLngLat(e.lngLat)
-          .setHTML(html)
-          .addTo(map);
+        showSegmentPopup(e.features[0], e.lngLat);
+      });
+      map.on('click', 'segments-oneway-arrows', (e) => {
+        if (isDrawingBbox) return;
+        if (!e.features || !e.features[0]) return;
+        showSegmentPopup(e.features[0], e.lngLat);
       });
 
-      // Cursor pointer al pasar sobre las líneas
+      // Cursor pointer al pasar sobre las líneas o flechas
       map.on('mouseenter', 'segments-line', () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', 'segments-line', () => { map.getCanvas().style.cursor = ''; });
+      map.on('mouseenter', 'segments-oneway-arrows', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'segments-oneway-arrows', () => { map.getCanvas().style.cursor = ''; });
 
       // Click en nodos
       map.on('click', 'nodes-circle', (e) => {
@@ -1322,6 +1772,11 @@
           gpkgSelect.innerHTML = '<option value="">No hay archivos .gpkg en output/</option>';
           const fileDisplay = document.getElementById('outputActiveFileDisplay');
           if (fileDisplay) fileDisplay.textContent = '(Sin archivos en output/)';
+          activeGpkg = '';
+          if (!hasInitializedStartupTab) {
+            hasInitializedStartupTab = true;
+            selectTab('build');
+          }
           return;
         }
 
@@ -1336,8 +1791,22 @@
 
         activeGpkg = gpkgSelect.value;
         await loadGpkgMetadata(activeGpkg);
+
+        // Si hay información seleccionada/cargada, arrancar en Capas; si no, en Carga de Data
+        if (!hasInitializedStartupTab) {
+          hasInitializedStartupTab = true;
+          if (activeGpkg) {
+            selectTab('layers');
+          } else {
+            selectTab('build');
+          }
+        }
       } catch (err) {
         console.error('Error al listar archivos:', err);
+        if (!hasInitializedStartupTab) {
+          hasInitializedStartupTab = true;
+          selectTab('build');
+        }
       }
     }
 
@@ -1606,58 +2075,81 @@
     function renderHighwayBreakdown(meta) {
       const container = document.getElementById('highwayBreakdown');
       const checkboxes = document.getElementById('highwayCheckboxes');
-      container.innerHTML = '';
-      checkboxes.innerHTML = '';
+      if (container) container.innerHTML = '';
+      if (checkboxes) checkboxes.innerHTML = '';
 
       const quality = meta.report && meta.report.quality;
-      const kmByHw = quality ? quality.kmByHighway : {};
-      const segByHw = quality ? quality.segmentsByHighway : {};
+      const kmByHw = quality ? (quality.kmByHighway || {}) : {};
+      const segByHw = quality ? (quality.segmentsByHighway || {}) : {};
 
-      const keys = Object.keys(kmByHw);
+      const standardTypes = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'residential', 'service', 'track', 'unclassified'];
+
+      let keys = Object.keys(kmByHw);
       if (keys.length === 0) {
-        container.innerHTML = '<p class="text-slate-500">Sin estadísticas detalladas de highway.</p>';
-        return;
+        keys = standardTypes.slice();
+      } else {
+        // Ordenar por km desc
+        keys.sort((a, b) => (kmByHw[b] || 0) - (kmByHw[a] || 0));
+        // Asegurar que tipos comunes configurados estén siempre disponibles en las opciones
+        standardTypes.forEach(t => {
+          if (!keys.includes(t)) keys.push(t);
+        });
       }
 
-      // Ordenar por km desc
-      keys.sort((a, b) => (kmByHw[b] || 0) - (kmByHw[a] || 0));
-      const maxKm = kmByHw[keys[0]] || 1;
+      const maxKm = keys.length > 0 && kmByHw[keys[0]] ? kmByHw[keys[0]] : 1;
 
       keys.forEach(hw => {
         const km = kmByHw[hw] || 0;
         const seg = segByHw[hw] || 0;
         const pct = Math.max(4, Math.round((km / maxKm) * 100));
         const color = HIGHWAY_COLORS[hw] || '#64748b';
+        const labelText = HIGHWAY_LABELS[hw] || hw;
 
-        // Barra en Métricas
-        const row = document.createElement('div');
-        row.className = 'space-y-1';
-        row.innerHTML = `
-          <div class="flex justify-between items-center text-[11px]">
-            <span class="font-medium text-slate-200 capitalize flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full" style="background-color: ${color}"></span>
-              ${hw}
-            </span>
-            <span class="text-slate-400 font-mono">${km.toFixed(1)} km <span class="text-slate-600">(${seg.toLocaleString()})</span></span>
-          </div>
-          <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-            <div class="h-1.5 rounded-full" style="width: ${pct}%; background-color: ${color}"></div>
-          </div>
-        `;
-        container.appendChild(row);
+        // Barra en Métricas (solo para tipos presentes con kilometraje en este archivo)
+        if (container && km > 0) {
+          const row = document.createElement('div');
+          row.className = 'space-y-1';
+          row.innerHTML = `
+            <div class="flex justify-between items-center text-[11px]">
+              <span class="font-medium text-slate-200 flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color: ${color}"></span>
+                <span>${labelText}</span>
+                <span class="text-[10px] text-slate-500 font-mono">(${hw})</span>
+              </span>
+              <span class="text-slate-400 font-mono">${km.toFixed(1)} km <span class="text-slate-600">(${seg.toLocaleString()})</span></span>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+              <div class="h-1.5 rounded-full" style="width: ${pct}%; background-color: ${color}"></div>
+            </div>
+          `;
+          container.appendChild(row);
+        }
 
         // Checkbox en Capas
-        const label = document.createElement('label');
-        label.className = 'flex items-center justify-between text-slate-300 hover:text-white cursor-pointer py-0.5';
-        label.innerHTML = `
-          <div class="flex items-center gap-2">
-            <input type="checkbox" checked value="${hw}" class="hw-checkbox rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-0" />
-            <span class="capitalize">${hw}</span>
-          </div>
-          <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${color}"></span>
-        `;
-        checkboxes.appendChild(label);
+        if (checkboxes) {
+          const label = document.createElement('label');
+          label.className = 'flex items-center justify-between text-slate-300 hover:text-white cursor-pointer py-1 px-1.5 rounded hover:bg-slate-800/60 transition';
+          const countBadge = seg > 0 ? `<span class="text-[10px] text-slate-500 font-mono">${seg.toLocaleString()} vías</span>` : '';
+          label.innerHTML = `
+            <div class="flex items-center gap-2">
+              <input type="checkbox" checked value="${hw}" class="hw-checkbox rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-0" />
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-medium text-slate-200">${labelText}</span>
+                <span class="text-[10px] text-slate-500 font-mono">(${hw})</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              ${countBadge}
+              <span class="w-2.5 h-2.5 rounded-full border border-slate-700 shadow-sm flex-shrink-0" style="background-color: ${color}"></span>
+            </div>
+          `;
+          checkboxes.appendChild(label);
+        }
       });
+
+      if (container && container.children.length === 0) {
+        container.innerHTML = '<p class="text-slate-500 text-[11px]">Sin desglose de kilometraje para este archivo.</p>';
+      }
 
       // Evento para checkboxes
       document.querySelectorAll('.hw-checkbox').forEach(chk => {
@@ -1745,6 +2237,23 @@
           map.getSource('segments').setData(geoJson);
         }
 
+        // Actualizar contadores en vivo de vías por sentido
+        const feats = geoJson.features || [];
+        const twoWayCount = feats.filter(f => !f.properties.is_oneway).length;
+        const oneWayCount = feats.filter(f => Boolean(f.properties.is_oneway)).length;
+        const badgeTwo = document.getElementById('twoWayStatsCount');
+        const badgeOne = document.getElementById('oneWayStatsCount');
+        if (badgeTwo) badgeTwo.textContent = `${twoWayCount.toLocaleString()} vías (sólido)`;
+        if (badgeOne) badgeOne.textContent = `${oneWayCount.toLocaleString()} vías (flechas ▸)`;
+
+        const floatTwo = document.getElementById('floatTwoWayCount');
+        const floatOne = document.getElementById('floatOneWayCount');
+        const totalFeats = Math.max(feats.length, 1);
+        if (floatTwo) floatTwo.textContent = `${twoWayCount.toLocaleString()} vías (${Math.round(twoWayCount / totalFeats * 100)}%)`;
+        if (floatOne) floatOne.textContent = `${oneWayCount.toLocaleString()} vías (${Math.round(oneWayCount / totalFeats * 100)}%)`;
+
+        applyDirectionFilters();
+
         // Nodos (solo zoom >= 14)
         const showNodes = document.getElementById('chkShowNodes').checked;
         if (showNodes && zoom >= 14) {
@@ -1802,6 +2311,15 @@
         lblQuick.textContent = 'Satelital';
       }
 
+      // Actualizar etiqueta de atribución de mapa base
+      const attrLabel = document.getElementById('basemapAttributionLabel');
+      if (attrLabel) {
+        if (styleKey === 'hybrid') attrLabel.textContent = '© Google Maps';
+        else if (styleKey === 'satellite') attrLabel.textContent = 'Tiles © Esri, Maxar, Earthstar';
+        else if (styleKey === 'dark') attrLabel.textContent = '© CARTO Dark';
+        else if (styleKey === 'positron') attrLabel.textContent = '© CARTO Positron';
+      }
+
       // Cambiar estilo preservando atómicamente las fuentes y capas de carreteras, nodos, área seleccionada y límites de red
       map.setStyle(BASEMAPS[styleKey], {
         transformStyle: (prev, next) => {
@@ -1854,8 +2372,9 @@
           map.setPaintProperty('network-boundary-glow', 'line-opacity', isSat ? 0.6 : 0.35);
         }
         if (map.getLayer('network-boundary-fill')) {
-          map.setPaintProperty('network-boundary-fill', 'fill-opacity', isSat ? 0.08 : 0.04);
+          map.setPaintProperty('network-boundary-fill', 'fill-opacity', 0);
         }
+        updateSegmentStyling();
         updateViewportData();
       };
 
@@ -1867,13 +2386,85 @@
     });
 
     const btnQuickSatellite = document.getElementById('btnQuickSatellite');
-    btnQuickSatellite.addEventListener('click', () => {
-      if (currentBasemap === 'satellite' || currentBasemap === 'hybrid') {
-        switchBasemap('dark');
-      } else {
-        switchBasemap('satellite');
+    if (btnQuickSatellite) {
+      btnQuickSatellite.addEventListener('click', () => {
+        if (currentBasemap === 'satellite' || currentBasemap === 'hybrid') {
+          switchBasemap('dark');
+        } else {
+          switchBasemap('hybrid');
+        }
+      });
+    }
+
+    const btnQuickColorMode = document.getElementById('btnQuickColorMode');
+    if (btnQuickColorMode) {
+      btnQuickColorMode.addEventListener('click', () => {
+        setColorMode(colorMode === 'highway' ? 'direction' : 'highway');
+      });
+    }
+
+    const btnModeHighway = document.getElementById('btnModeHighway');
+    if (btnModeHighway) {
+      btnModeHighway.addEventListener('click', () => setColorMode('highway'));
+    }
+
+    const btnModeDirection = document.getElementById('btnModeDirection');
+    if (btnModeDirection) {
+      btnModeDirection.addEventListener('click', () => setColorMode('direction'));
+    }
+
+    const chkShowTwoWay = document.getElementById('chkShowTwoWay');
+    if (chkShowTwoWay) {
+      chkShowTwoWay.addEventListener('change', () => applyDirectionFilters());
+    }
+
+    const chkShowOneWay = document.getElementById('chkShowOneWay');
+    if (chkShowOneWay) {
+      chkShowOneWay.addEventListener('change', () => applyDirectionFilters());
+    }
+
+    const btnCheckAllHws = document.getElementById('btnCheckAllHighways');
+    if (btnCheckAllHws) {
+      btnCheckAllHws.addEventListener('click', () => {
+        document.querySelectorAll('.hw-checkbox').forEach(c => c.checked = true);
+        updateViewportData();
+      });
+    }
+
+    const btnUncheckAllHws = document.getElementById('btnUncheckAllHighways');
+    if (btnUncheckAllHws) {
+      btnUncheckAllHws.addEventListener('click', () => {
+        document.querySelectorAll('.hw-checkbox').forEach(c => c.checked = false);
+        updateViewportData();
+      });
+    }
+
+    function flyToOnewayExample() {
+      if (colorMode !== 'direction') {
+        setColorMode('direction');
       }
-    });
+      map.flyTo({
+        center: [-73.0507, 6.9971],
+        zoom: 15.5,
+        pitch: 25,
+        bearing: 0,
+        essential: true
+      });
+    }
+
+    const btnFlyOneway1 = document.getElementById('btnFlyToOnewayExample');
+    if (btnFlyOneway1) btnFlyOneway1.addEventListener('click', flyToOnewayExample);
+
+    const btnFlyOneway2 = document.getElementById('btnFlyToOnewayExample2');
+    if (btnFlyOneway2) btnFlyOneway2.addEventListener('click', flyToOnewayExample);
+
+    const btnCloseDirWidget = document.getElementById('btnCloseDirectionWidget');
+    if (btnCloseDirWidget) {
+      btnCloseDirWidget.addEventListener('click', () => {
+        const widget = document.getElementById('directionFloatingWidget');
+        if (widget) widget.classList.add('hidden');
+      });
+    }
 
     // =========================================================================
     // LÓGICA DE BÚSQUEDA, DESCARGA GEOFABRIK Y CONSTRUCCIÓN (BUILD)
@@ -2073,14 +2664,144 @@
             if (selected.bufferMeters) {
               buildBufferMeters.value = selected.bufferMeters;
             }
+            if (selected.highways && Array.isArray(selected.highways)) {
+              setBuildHighways(selected.highways);
+            }
           } else {
             profileDescription.textContent = '';
+            setBuildHighways(BUILD_HIGHWAY_CATALOG.filter(h => h.sherpa).map(h => h.key));
           }
         });
       } catch (err) {
         console.error('Error al cargar perfiles:', err);
       }
     }
+
+    // =========================================================================
+    // CATÁLOGO Y GESTIÓN DE TIPOS DE VÍAS PARA LA CONSTRUCCIÓN (BUILD)
+    // =========================================================================
+
+    const BUILD_HIGHWAY_CATALOG = [
+      { key: 'motorway', label: 'Autopista (motorway)', color: '#ef4444', desc: 'Autovías y autopistas', sherpa: true, vehicular: true, main: true },
+      { key: 'trunk', label: 'Vía Troncal (trunk)', color: '#f97316', desc: 'Carreteras de alta capacidad', sherpa: true, vehicular: true, main: true },
+      { key: 'primary', label: 'Primaria (primary)', color: '#eab308', desc: 'Rutas intermunicipales primarias', sherpa: true, vehicular: true, main: true },
+      { key: 'secondary', label: 'Secundaria (secondary)', color: '#22c55e', desc: 'Conectoras secundarias', sherpa: true, vehicular: true, main: true },
+      { key: 'tertiary', label: 'Terciaria (tertiary)', color: '#06b6d4', desc: 'Vías colectoras intermedias', sherpa: true, vehicular: true, main: false },
+      { key: 'residential', label: 'Residencial (residential)', color: '#64748b', desc: 'Calles urbanas habitacionales', sherpa: true, vehicular: true, main: false },
+      { key: 'unclassified', label: 'Rural / Conectora (unclassified)', color: '#94a3b8', desc: 'Vías menores transitables', sherpa: true, vehicular: true, main: false },
+      { key: 'service', label: 'Servicio / Acceso (service)', color: '#a855f7', desc: 'Parqueaderos, callejones, accesos internos', sherpa: true, vehicular: false, main: false },
+      { key: 'track', label: 'Pista / Huella (track)', color: '#78716c', desc: 'Caminos de tierra o agrícolas', sherpa: true, vehicular: false, main: false },
+      { key: 'motorway_link', label: 'Rampa Autopista (motorway_link)', color: '#ef4444', desc: 'Enlaces y rampas de autopista', sherpa: false, vehicular: false, main: false },
+      { key: 'trunk_link', label: 'Rampa Troncal (trunk_link)', color: '#f97316', desc: 'Enlaces y rampas de troncales', sherpa: false, vehicular: false, main: false },
+      { key: 'primary_link', label: 'Rampa Primaria (primary_link)', color: '#eab308', desc: 'Enlaces y giros de primarias', sherpa: false, vehicular: false, main: false },
+      { key: 'secondary_link', label: 'Rampa Secundaria (secondary_link)', color: '#22c55e', desc: 'Enlaces y orejas de secundarias', sherpa: false, vehicular: false, main: false },
+      { key: 'living_street', label: 'Calle Convivencia (living_street)', color: '#64748b', desc: 'Zonas 30 / prioridad peatonal', sherpa: false, vehicular: false, main: false }
+    ];
+
+    const buildHighwaysContainer = document.getElementById('buildHighwaysContainer');
+    const buildHighwaysCountBadge = document.getElementById('buildHighwaysCountBadge');
+    const buildHighwaysNotice = document.getElementById('buildHighwaysNotice');
+
+    function renderBuildHighways() {
+      if (!buildHighwaysContainer) return;
+      buildHighwaysContainer.innerHTML = '';
+      BUILD_HIGHWAY_CATALOG.forEach(hw => {
+        const item = document.createElement('label');
+        item.className = 'flex items-center gap-1.5 p-1 rounded hover:bg-slate-800/60 cursor-pointer select-none text-[11px] text-slate-200 transition';
+        item.title = hw.desc;
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = hw.key;
+        cb.className = 'build-hw-cb rounded border-slate-700 bg-slate-950 text-indigo-500 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5';
+        cb.checked = hw.sherpa; // Inicia con el estándar de SherpaSlb (9 vías)
+
+        cb.addEventListener('change', updateBuildHighwaysUI);
+
+        const dot = document.createElement('span');
+        dot.className = 'w-2 h-2 rounded-full flex-shrink-0';
+        dot.style.backgroundColor = hw.color;
+
+        const textSpan = document.createElement('span');
+        textSpan.className = 'truncate';
+        textSpan.textContent = hw.label;
+
+        item.appendChild(cb);
+        item.appendChild(dot);
+        item.appendChild(textSpan);
+        buildHighwaysContainer.appendChild(item);
+      });
+      updateBuildHighwaysUI();
+    }
+
+    function getSelectedBuildHighways() {
+      const cbs = document.querySelectorAll('.build-hw-cb:checked');
+      return Array.from(cbs).map(cb => cb.value);
+    }
+
+    function setBuildHighways(keys) {
+      if (!keys || !Array.isArray(keys)) return;
+      const keySet = new Set(keys.map(k => k.toLowerCase()));
+      document.querySelectorAll('.build-hw-cb').forEach(cb => {
+        cb.checked = keySet.has(cb.value.toLowerCase());
+      });
+      updateBuildHighwaysUI();
+    }
+
+    function updateBuildHighwaysUI() {
+      const selected = getSelectedBuildHighways();
+      if (buildHighwaysCountBadge) {
+        buildHighwaysCountBadge.textContent = `${selected.length} selecc.`;
+        buildHighwaysCountBadge.className = selected.length > 0
+          ? 'text-[10px] font-mono px-1.5 py-0.5 rounded bg-indigo-950/80 text-indigo-400 border border-indigo-800/40'
+          : 'text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-950/80 text-rose-400 border border-rose-800/40 font-bold';
+      }
+
+      if (buildHighwaysNotice) {
+        const hasService = selected.includes('service');
+        const hasTrack = selected.includes('track');
+        if (hasService || hasTrack) {
+          const which = hasService && hasTrack ? "'service' y 'track'" : (hasService ? "'service'" : "'track'");
+          buildHighwaysNotice.innerHTML = `<span class="text-amber-400 font-semibold">⚠️ Incluye ${which}:</span> <span class="text-slate-300">Los algoritmos de ruteo podrían tomar atajos por parqueaderos, accesos privados o huellas rurales.</span>`;
+          buildHighwaysNotice.className = 'text-[10px] px-2 py-1 rounded bg-amber-950/30 border border-amber-800/40 text-slate-300';
+        } else if (selected.length > 0) {
+          buildHighwaysNotice.innerHTML = `<span class="text-emerald-400 font-semibold">🚗 Modo Vehicular Estricto:</span> <span class="text-slate-300">Vías de servicio y huellas excluidas. El ruteo se limitará a vías públicas seguras para automóviles/camiones.</span>`;
+          buildHighwaysNotice.className = 'text-[10px] px-2 py-1 rounded bg-emerald-950/30 border border-emerald-800/40 text-slate-300';
+        } else {
+          buildHighwaysNotice.innerHTML = `<span class="text-rose-400 font-semibold">❌ Ninguna vía seleccionada:</span> <span class="text-slate-400">Debes marcar al menos un tipo para generar la red.</span>`;
+          buildHighwaysNotice.className = 'text-[10px] px-2 py-1 rounded bg-rose-950/30 border border-rose-800/40 text-rose-300';
+        }
+      }
+    }
+
+    // Botones presets de tipos de vías
+    document.getElementById('btnPresetStandardVehicular')?.addEventListener('click', () => {
+      const vehicularKeys = BUILD_HIGHWAY_CATALOG.filter(h => h.vehicular).map(h => h.key);
+      setBuildHighways(vehicularKeys);
+    });
+
+    document.getElementById('btnPresetSherpa')?.addEventListener('click', () => {
+      const sherpaKeys = BUILD_HIGHWAY_CATALOG.filter(h => h.sherpa).map(h => h.key);
+      setBuildHighways(sherpaKeys);
+    });
+
+    document.getElementById('btnPresetMainOnly')?.addEventListener('click', () => {
+      const mainKeys = BUILD_HIGHWAY_CATALOG.filter(h => h.main).map(h => h.key);
+      setBuildHighways(mainKeys);
+    });
+
+    document.getElementById('btnBuildHwSelectAll')?.addEventListener('click', () => {
+      document.querySelectorAll('.build-hw-cb').forEach(cb => cb.checked = true);
+      updateBuildHighwaysUI();
+    });
+
+    document.getElementById('btnBuildHwDeselectAll')?.addEventListener('click', () => {
+      document.querySelectorAll('.build-hw-cb').forEach(cb => cb.checked = false);
+      updateBuildHighwaysUI();
+    });
+
+    // Inicializar catálogo de vías
+    renderBuildHighways();
 
     // Capturar Bounding Box actual del mapa
     btnCaptureBbox.addEventListener('click', () => {
@@ -2110,6 +2831,9 @@
     const confirmBboxDetails = document.getElementById('confirmBboxDetails');
     const confirmBufferDetails = document.getElementById('confirmBufferDetails');
     const confirmNoBboxWarning = document.getElementById('confirmNoBboxWarning');
+    const confirmHighwaysBadge = document.getElementById('confirmHighwaysBadge');
+    const confirmHighwaysList = document.getElementById('confirmHighwaysList');
+    const confirmHighwaysWarning = document.getElementById('confirmHighwaysWarning');
     const btnCancelConfirmBuild = document.getElementById('btnCancelConfirmBuild');
     const btnCancelConfirmBuildX = document.getElementById('btnCancelConfirmBuildX');
     const btnExecuteBuildConfirmed = document.getElementById('btnExecuteBuildConfirmed');
@@ -2122,6 +2846,12 @@
       if (!pbf) {
         alert('Por favor selecciona o ingresa un archivo .pbf');
         buildPbfInput.focus();
+        return;
+      }
+
+      const selectedHighways = getSelectedBuildHighways();
+      if (selectedHighways.length === 0) {
+        alert('Debes seleccionar al menos un tipo de vía para construir la red vial.');
         return;
       }
 
@@ -2149,7 +2879,8 @@
         profile: profileName,
         outName,
         bbox,
-        bufferMeters
+        bufferMeters,
+        highways: selectedHighways
       };
 
       // Rellenar datos en el modal
@@ -2173,6 +2904,31 @@
         confirmBboxDetails.textContent = 'Extracción completa sin límites geográficos';
         confirmBufferDetails.textContent = bufferMeters ? `Buffer adicional: ${bufferMeters} m` : '';
         confirmNoBboxWarning.classList.remove('hidden');
+      }
+
+      // Rellenar sección de vías en el modal
+      if (confirmHighwaysBadge) {
+        confirmHighwaysBadge.textContent = `${selectedHighways.length} tipos de vía`;
+      }
+      if (confirmHighwaysList) {
+        confirmHighwaysList.innerHTML = '';
+        selectedHighways.forEach(hwKey => {
+          const spec = BUILD_HIGHWAY_CATALOG.find(h => h.key === hwKey) || { label: hwKey, color: '#94a3b8' };
+          const pill = document.createElement('span');
+          pill.className = 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700/80 text-slate-200 text-[10px] font-mono';
+          pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: ${spec.color}"></span><span>${hwKey}</span>`;
+          confirmHighwaysList.appendChild(pill);
+        });
+      }
+      if (confirmHighwaysWarning) {
+        const hasService = selectedHighways.includes('service');
+        const hasTrack = selectedHighways.includes('track');
+        if (hasService || hasTrack) {
+          const which = hasService && hasTrack ? "'service' y 'track'" : (hasService ? "'service'" : "'track'");
+          confirmHighwaysWarning.innerHTML = `<span class="text-amber-400 font-medium">⚠️ Incluye ${which}:</span> <span class="text-slate-400">Los algoritmos de ruteo podrían considerar callejones, accesos privados o huellas como atajos.</span>`;
+        } else {
+          confirmHighwaysWarning.innerHTML = '<span class="text-emerald-400 font-medium">🚗 Tránsito vehicular estricto:</span> <span class="text-slate-400">Solo vías públicas estándar (sin parqueaderos ni huellas de tierra).</span>';
+        }
       }
 
       confirmBuildModal.classList.remove('hidden');
@@ -2261,6 +3017,7 @@
           if (job.resultFile) {
             gpkgSelect.value = job.resultFile;
             await loadGpkgMetadata(job.resultFile);
+            selectTab('layers');
           }
         }
       }, 1600);

@@ -116,7 +116,7 @@ Sin perfil, la herramienta usa valores genéricos: tablas `road_nodes` / `road_s
 | `bbox` | — (obligatorio) | `{ minLon, minLat, maxLon, maxLat }` del área operativa |
 | `bufferMeters` | 20000 | Margen alrededor del bbox, en metros reales |
 | `legacyBuffer` | false | Aplicar el margen en unidades EPSG:3857 como el SQL original (≈ 15,6 km reales a −38°) |
-| `highways` | motorway … track (9 tipos) | Tipos de vía a incluir |
+| `highways` | motorway … track (9 tipos) | Tipos de vía a incluir (por defecto el set de SherpaSlb: `motorway,trunk,primary,secondary,tertiary,residential,unclassified,service,track`). En la Web UI o con `--highways` se pueden filtrar; por ejemplo, el preset **Vehicular Estándar** excluye `service` y `track` para evitar que los algoritmos de ruteo tomen atajos por parqueaderos privados o huellas de tierra. |
 | `splitWaysAt3857` | 100000 | Parte vías largas como osm2pgsql y solo conserva los tramos que tocan el área (0 = vía completa) |
 | `segmentizeMeters` | 50 | Largo máximo de cada micro-segmento |
 | `segmentizeMethod` | `bisect` | `bisect` = `ST_Segmentize(geography)` de PostGIS 3.4; `uniform` = partes iguales |
@@ -151,17 +151,83 @@ Sin perfil, la herramienta usa valores genéricos: tablas `road_nodes` / `road_s
 El `filter` es SQL del motor destino: comillas dobles en Postgres (`"\"NetworkType\" = 2"`), backticks en MySQL
 (`` "`NetworkType` = 2" ``), corchetes en SQL Server (`"[NetworkType] = 2"`).
 
-## Salida de `build`
+## 📦 Archivos generados en `output/` y cómo utilizarlos
 
-| Tabla del `.gpkg` | Contenido |
-|---|---|
-| `road_segments` | Micro-segmentos: `segment_key`, `osm_id`, `name`, `highway`, `is_oneway`, `lanes`, `max_speed`, nodos origen/destino, `length_m`, `travel_cost` |
-| `road_nodes` | Nodos: `node_key`, `valence` |
-| `build_info` | Parámetros, nombre y sha256 del pbf, estadísticas y validaciones |
+Cada ejecución del comando `build` genera en la carpeta `output\` un conjunto de archivos listos para consumo en software SIG, motores de bases de datos o análisis de datos.
 
-`segment_key` (`osm_id:nodo_origen:nodo_destino`) y `node_key` (coordenada en la grilla) son **llaves naturales
-estables**: la misma vía con los mismos parámetros produce la misma llave en cualquier carga. Con ellas
-`compare` y `sync` reconocen lo que ya existe en la base sin depender de sus Ids, y sin agregarle columnas.
+> [!TIP]
+> **¿Se pueden borrar los archivos de `output\`?**
+> **Sí.** Todos los archivos dentro de `output\` son artefactos derivados del extracto PBF original. Puedes eliminarlos en cualquier momento para liberar espacio en disco. Sin embargo, conservarlos permite que el **Visor Web** (`serve`) y el comando **`publish`** los consulten y desplieguen inmediatamente sin tener que esperar a reprocesar el archivo `.pbf`.
+
+---
+
+### 1. Archivo GeoPackage: `<nombre>.gpkg`
+Es una base de datos geoespacial estándar OGC (construida sobre SQLite con SRID 4326 WGS84) que contiene la red vial ruteable completa ya segmentada, topológicamente consistente y optimizada.
+
+#### Tablas contenidas en el GeoPackage:
+| Tabla | Tipo | Descripción | Columnas clave |
+|---|---|---|---|
+| **`road_segments`** | `LineString` | Micro-segmentos ruteables con impedancias de viaje y jerarquía vial | `fid`, `geom`, `segment_key`, `osm_id`, `name`, `highway`, `is_oneway` (1=único, 0=doble), `lanes`, `max_speed`, `length_m`, `travel_cost`, `from_node_key`, `to_node_key` |
+| **`road_nodes`** | `Point` | Vértices e intersecciones de la red vial | `fid`, `geom`, `node_key` (llave de grilla espacial), `valence` (número de calles conectadas) |
+| **`road_turn_restrictions`** | Tabla tabular | Restricciones de giro oficiales de OSM | `relation_id`, `restriction` (`no_left_turn`, `no_u_turn`, etc.), `from_osm_id`, `via_node_key`, `to_osm_id` |
+| **`build_info`** | Metadatos | Registro de auditoría del proceso de construcción | `pbf_name`, `pbf_sha256`, parámetros de segmentación, BBox, fecha de compilación |
+
+#### ¿Cómo utilizar el archivo `.gpkg`?
+* **En QGIS o ArcGIS**:
+  Arrastra y suelta el archivo `.gpkg` directamente en la ventana de QGIS. Podrás visualizar las capas vectoriales de segmentos y nodos, estilizarlas por jerarquía o sentido, y ejecutar análisis de grafos o rutas mínimas.
+* **Publicar a Base de Datos (PostgreSQL/PostGIS, MySQL, SQL Server)**:
+  Usa el comando `publish` de la CLI para cargar la red a tu base de datos:
+  ```powershell
+  # Crear tablas y cargar en base de datos nueva:
+  .\dist\osmimport.exe publish --gpkg output/colombia.gpkg --mode create --connection "Host=localhost;Database=routing;Username=postgres;Password=secret"
+
+  # Sincronizar base existente en producción respetando dependencias (modo sync):
+  .\dist\osmimport.exe publish --gpkg output/colombia.gpkg --mode sync --profile sherpaslb
+  ```
+* **En el Visor Web Interactivo**:
+  Inicia el visor con `.\dist\osmimport.exe serve` y selecciona el archivo en el desplegable superior para inspeccionarlo interactivamente en mapas vectoriales o satelitales.
+* **En scripts de análisis (Python)**:
+  ```python
+  import geopandas as gpd
+
+  # Cargar los segmentos a un GeoDataFrame
+  gdf = gpd.read_file("output/colombia-261123.gpkg", layer="road_segments")
+  print(f"Total tramos: {len(gdf)}")
+  print(gdf[["name", "highway", "is_oneway", "length_m"]].head())
+  ```
+* **En .NET (C#)**:
+  ```csharp
+  using Microsoft.Data.Sqlite;
+  using var conn = new SqliteConnection("Data Source=output/colombia.gpkg");
+  conn.Open();
+  // Puedes ejecutar cualquier consulta SQL estándar sobre las tablas del GeoPackage
+  ```
+
+---
+
+### 2. Archivo de Auditoría: `<nombre>.report.json`
+Archivo JSON generado automáticamente junto al GeoPackage que documenta las métricas de calidad y salud de la red extraída.
+
+* **Contenido principal:**
+  * **`parameters`**: Parámetros exactos con los que se compiló el grafo (`segmentizeMeters`, `bufferMeters`, `costFactors`, etc.).
+  * **`stats`**: Conteo de vías procesadas, puntos densificados, segmentos descartados por longitud mínima, nodos creados y tiempos por etapa.
+  * **`quality`**: Diagnóstico de conectividad de red, kilómetros y tramos agrupados por tipo de vía (`kmByHighway`, `segmentsByHighway`), porcentaje de vías de sentido único vs doble sentido, y componentes conexas.
+* **¿Cómo utilizarlo?**:
+  * **Visor Web**: Al seleccionar un GeoPackage, el visor lee este archivo para poblar las tarjetas de métricas, distribución kilométrica y tiempos de procesamiento.
+  * **Validación en CI/CD**: Para verificar automáticamente mediante scripts que la red cubra el área esperada y no tenga anomalías antes de publicarla a producción.
+
+---
+
+### 3. Archivo de Comparación: `<nombre>.compare.json`
+Se genera al ejecutar `osmimport compare --gpkg output/<nombre>.gpkg --profile <perfil>`.
+
+* **Contenido:**
+  * Diagnóstico de paridad entre la red del archivo `.gpkg` y la red que ya reside en la base de datos de producción (coincidentes, nuevos, retirados y modificados mediante llaves naturales estables).
+  * Matriz de impacto sobre registros de tablas dependientes (rutas existentes, pedidos, órdenes históricas).
+* **¿Cómo utilizarlo?**:
+  * Auditoría previa obligatoria para entornos de producción antes de ejecutar un `publish --mode sync`.
+
+---
 
 ## Particularidades por motor
 
