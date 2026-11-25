@@ -144,6 +144,11 @@ public static class Commands
     Log.Step(args.Flag("coverage-only")
       ? $"Cobertura lista en {report.Timings["total"]}"
       : $"Listo en {report.Timings["total"]}: {report.Output}");
+    if (!args.Flag("coverage-only"))
+    {
+      Log.Info($"  Archivos generados en: {Path.GetFullPath(Path.GetDirectoryName(report.Output)!)}");
+      Log.Info("  (Nota: Puedes borrar los archivos de 'output' cuando desees; son artefactos generados)");
+    }
     return 0;
   }
 

@@ -515,13 +515,14 @@ public static class ServeCommand
 
     var rule = new Rule("[bold green]osmimport — Visor Web Activo[/]").LeftJustified();
     AnsiConsole.Write(rule);
-    AnsiConsole.MarkupLine($"[bold]URL:[/]       [link={url}]{url}[/]");
-    AnsiConsole.MarkupLine($"[bold]Directorio:[/] {outputDir}");
+    AnsiConsole.MarkupLine($"[bold]URL:[/]        [link={url}]{url}[/]");
+    AnsiConsole.MarkupLine($"[bold]Directorio:[/] [cyan]{outputDir}[/]");
     if (selectedGpkg != null)
       AnsiConsole.MarkupLine($"[bold]Archivo:[/]    [yellow]{Path.GetFileName(selectedGpkg)}[/]");
     else
       AnsiConsole.MarkupLine($"[bold]Archivo:[/]    [dim](No se encontraron archivos .gpkg en {outputDir})[/]");
 
+    AnsiConsole.MarkupLine($"[dim]💡 Tip: Los archivos en '{outputDir}' son derivados del pipeline y pueden borrarse para liberar espacio.[/]");
     AnsiConsole.MarkupLine("\n[dim]Presiona Ctrl+C para detener el servidor.[/]\n");
 
     if (!noBrowser)

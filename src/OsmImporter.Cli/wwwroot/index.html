@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="es" class="h-full bg-slate-950 text-slate-100">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>osmimport — Visor y Gestor de Red Vial</title>
-  
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -34,98 +35,164 @@
       padding: 1rem !important;
       box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
     }
-    .maplibregl-popup-anchor-top .maplibregl-popup-tip { border-bottom-color: #0f172a !important; }
-    .maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color: #0f172a !important; }
-    .maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: #0f172a !important; }
-    .maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: #0f172a !important; }
+
+    .maplibregl-popup-anchor-top .maplibregl-popup-tip {
+      border-bottom-color: #0f172a !important;
+    }
+
+    .maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+      border-top-color: #0f172a !important;
+    }
+
+    .maplibregl-popup-anchor-left .maplibregl-popup-tip {
+      border-right-color: #0f172a !important;
+    }
+
+    .maplibregl-popup-anchor-right .maplibregl-popup-tip {
+      border-left-color: #0f172a !important;
+    }
+
     .maplibregl-popup-close-button {
       color: #94a3b8;
       font-size: 1.25rem;
       padding: 0.25rem 0.5rem;
     }
-    .maplibregl-popup-close-button:hover { color: #fff; }
-    
+
+    .maplibregl-popup-close-button:hover {
+      color: #fff;
+    }
+
     /* Scrollbar estilizado */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #0f172a; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
   </style>
 </head>
+
 <body class="h-full flex flex-col overflow-hidden select-none font-sans">
 
   <!-- Top Navbar -->
-  <header class="h-14 bg-slate-900/90 backdrop-blur border-b border-slate-800 flex items-center justify-between px-4 z-20 flex-shrink-0">
+  <header
+    class="h-14 bg-slate-900/90 backdrop-blur border-b border-slate-800 flex items-center justify-between px-4 z-20 flex-shrink-0">
     <div class="flex items-center gap-3">
-      <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold text-lg">
+      <div
+        class="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold text-lg">
         🛣️
       </div>
       <div>
-        <h1 class="font-bold text-sm tracking-wide text-white">osmimport <span class="text-xs font-normal text-emerald-400 bg-emerald-950/70 border border-emerald-800/50 px-2 py-0.5 rounded-full ml-1">Studio</span></h1>
+        <h1 class="font-bold text-sm tracking-wide text-white">osmimport <span
+            class="text-xs font-normal text-emerald-400 bg-emerald-950/70 border border-emerald-800/50 px-2 py-0.5 rounded-full ml-1">Studio</span>
+        </h1>
       </div>
 
       <!-- Selector de GeoPackage -->
       <div class="ml-4 flex items-center gap-2">
-        <label for="gpkgSelect" class="text-xs text-slate-400 font-medium">Red:</label>
-        <select id="gpkgSelect" class="bg-slate-800 text-slate-200 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 max-w-xs truncate">
+        <label for="gpkgSelect" class="text-xs text-slate-400 font-medium"
+          title="Selecciona qué archivo .gpkg deseas inspeccionar en el mapa">Red:</label>
+        <select id="gpkgSelect" title="Seleccionar la red vial GeoPackage (.gpkg) activa para visualizar en el mapa"
+          class="bg-slate-800 text-slate-200 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 max-w-xs truncate">
           <option value="">Cargando archivos...</option>
         </select>
+        <button id="btnOpenOutputFolderNav"
+          title="Abrir la carpeta output/ en el Explorador de Windows donde se guardan los archivos .gpkg y reportes JSON generados"
+          class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1">
+          <span>📁</span>
+          <span class="hidden sm:inline">Carpeta Salida</span>
+        </button>
       </div>
     </div>
 
     <!-- Quick KPIs & Actions -->
     <div class="flex items-center gap-2.5">
       <!-- Indicador de carga -->
-      <div id="loadingIndicator" class="hidden items-center gap-2 text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2.5 py-1 rounded-full animate-pulse">
-        <svg class="animate-spin h-3.5 w-3.5 text-emerald-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <div id="loadingIndicator"
+        class="hidden items-center gap-2 text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2.5 py-1 rounded-full animate-pulse">
+        <svg class="animate-spin h-3.5 w-3.5 text-emerald-400" xmlns="http://www.w3.org/2000/svg" fill="none"
+          viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          <path class="opacity-75" fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+          </path>
         </svg>
         <span>Actualizando mapa...</span>
       </div>
 
       <!-- Badges de estadísticas rápidas -->
       <div class="hidden sm:flex items-center gap-2 text-xs">
-        <div class="bg-slate-800/80 border border-slate-700/60 rounded-md px-2 py-1">
+        <div class="bg-slate-800/80 border border-slate-700/60 rounded-md px-2 py-1"
+          title="Kilómetros totales de carreteras procesadas y presentes en este archivo">
           <span class="text-slate-400">Total:</span>
           <span id="badgeTotalKm" class="font-semibold text-slate-100 ml-1">-- km</span>
         </div>
-        <div class="bg-slate-800/80 border border-slate-700/60 rounded-md px-2 py-1">
+        <div class="bg-slate-800/80 border border-slate-700/60 rounded-md px-2 py-1"
+          title="Cantidad total de segmentos viales individuales en el archivo">
           <span class="text-slate-400">Segmentos:</span>
           <span id="badgeSegments" class="font-semibold text-slate-100 ml-1">--</span>
         </div>
-        <div class="bg-slate-800/80 border border-slate-700/60 rounded-md px-2 py-1">
+        <div class="bg-slate-800/80 border border-slate-700/60 rounded-md px-2 py-1"
+          title="Cantidad de nodos topológicos (intersecciones y terminales de vía)">
           <span class="text-slate-400">Nodos:</span>
           <span id="badgeNodes" class="font-semibold text-slate-100 ml-1">--</span>
         </div>
       </div>
 
       <!-- Botón Descargar & Build -->
-      <button id="btnOpenBuildTab" title="Buscar y descargar regiones o construir nueva red" class="bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 shadow-sm">
+      <button id="btnOpenBuildTab"
+        title="Abrir panel para buscar y descargar extractos oficiales de Geofabrik o construir una nueva red vial"
+        class="bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 shadow-sm">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
         </svg>
         <span>Descarga & Build</span>
       </button>
 
       <!-- Botón centrar en datos -->
-      <button id="btnFitBounds" title="Centrar mapa en la extensión de la red" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+      <button id="btnFitBounds" title="Centrar el mapa automáticamente en la extensión completa de la red vial cargada"
+        class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
         </svg>
         <span>Centrar</span>
       </button>
 
+      <!-- Toggle Demarcación de Límites de Red -->
+      <button id="btnToggleNetworkBoundary"
+        title="Alternar la demarcación visual del límite geográfico de la red vial cargada"
+        class="bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-800/60 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+        <span class="w-2.5 h-2.5 rounded-sm border border-cyan-400 bg-cyan-400/30"></span>
+        <span class="hidden md:inline">Límites</span>
+      </button>
+
       <!-- Toggle rápido Satelital -->
-      <button id="btnQuickSatellite" title="Alternar entre mapa vectorial y satelital" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+      <button id="btnQuickSatellite"
+        title="Alternar rápidamente entre mapa vectorial y ortofoto satelital de alta resolución"
+        class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
         <span>🛰️</span>
         <span id="quickSatelliteLabel">Satelital</span>
       </button>
 
       <!-- Toggle Panel Lateral -->
-      <button id="btnToggleSidebar" title="Mostrar/ocultar panel" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+      <button id="btnToggleSidebar" title="Mostrar u ocultar la barra lateral de información y opciones"
+        class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
         <span>Panel</span>
       </button>
@@ -137,46 +204,104 @@
     <!-- Map Container -->
     <div id="map" class="w-full h-full bg-slate-900"></div>
 
+    <!-- Banner flotante para Modo Selección de Área en el mapa -->
+    <div id="drawBboxBanner"
+      class="absolute top-4 left-1/2 -translate-x-1/2 bg-slate-900/95 border-2 border-indigo-500 shadow-2xl rounded-xl px-4 py-2.5 text-xs text-white z-20 flex items-center gap-3 hidden backdrop-blur">
+      <div class="flex items-center gap-2">
+        <span class="text-lg">📐</span>
+        <div>
+          <span class="font-bold text-indigo-400 block">Modo Selección de Área activo</span>
+          <span class="text-[11px] text-slate-300">Haz clic y arrastra el ratón sobre el mapa para trazar el recuadro
+            del área deseada.</span>
+        </div>
+      </div>
+      <button id="btnCancelDrawBbox" title="Cancelar el modo de dibujo de área"
+        class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 px-2.5 py-1 rounded text-[11px] font-medium transition">
+        Cancelar
+      </button>
+    </div>
+
+    <!-- Badge flotante de Límites de Red en el mapa -->
+    <div id="boundaryOverlayBadge" title="Hacer clic para centrar en la extensión total de esta red"
+      class="absolute bottom-6 right-16 bg-slate-900/90 border border-cyan-500/60 shadow-xl px-2.5 py-1 rounded-lg text-[11px] text-cyan-300 backdrop-blur pointer-events-auto cursor-pointer z-10 hidden flex items-center gap-2 hover:bg-slate-800 transition">
+      <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+      <span id="boundaryOverlayText" class="font-medium">Límite de red</span>
+      <span class="text-[10px] text-cyan-400">🎯</span>
+    </div>
+
     <!-- Floating Lateral Drawer (Dashboard & Filtros) -->
-    <aside id="sidebar" class="absolute top-4 left-4 w-[430px] max-h-[calc(100%-2rem)] bg-slate-900/95 backdrop-blur-md border border-slate-800 rounded-xl shadow-2xl flex flex-col z-10 transition-all duration-300">
-      
+    <aside id="sidebar"
+      class="absolute top-4 left-4 w-[430px] max-h-[calc(100%-2rem)] bg-slate-900/95 backdrop-blur-md border border-slate-800 rounded-xl shadow-2xl flex flex-col z-10 transition-all duration-300">
+
       <!-- Tabs Navigation -->
       <div class="flex border-b border-slate-800 px-2 pt-2.5 gap-1 overflow-x-auto">
-        <button data-tab="metrics" class="tab-btn active text-xs font-semibold px-2.5 py-2 rounded-t-lg border-b-2 border-emerald-500 text-emerald-400 bg-slate-800/50 flex-shrink-0">
+        <button data-tab="metrics" title="Ver métricas de calidad, kilometraje, componentes y desglose por tipo de vía"
+          class="tab-btn active text-xs font-semibold px-2.5 py-2 rounded-t-lg border-b-2 border-emerald-500 text-emerald-400 bg-slate-800/50 flex-shrink-0">
           Métricas
         </button>
-        <button data-tab="build" id="tabBuildBtn" class="tab-btn text-xs font-medium px-2.5 py-2 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex-shrink-0 flex items-center gap-1">
+        <button data-tab="build" id="tabBuildBtn"
+          title="Descargar regiones de Geofabrik, seleccionar áreas y generar nuevos GeoPackages"
+          class="tab-btn text-xs font-medium px-2.5 py-2 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex-shrink-0 flex items-center gap-1">
           <span>📥 Descarga & Build</span>
         </button>
-        <button data-tab="layers" class="tab-btn text-xs font-medium px-2.5 py-2 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex-shrink-0">
+        <button data-tab="layers" title="Filtrar tipos de carreteras visibles y cambiar estilo de mapa base"
+          class="tab-btn text-xs font-medium px-2.5 py-2 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex-shrink-0">
           Capas
         </button>
-        <button data-tab="parity" id="tabParityBtn" class="tab-btn hidden text-xs font-medium px-2.5 py-2 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex-shrink-0">
+        <button data-tab="parity" id="tabParityBtn"
+          title="Ver reporte de comparación y diferencias con la base de datos de producción"
+          class="tab-btn hidden text-xs font-medium px-2.5 py-2 rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex-shrink-0">
           Paridad
         </button>
       </div>
 
       <!-- Tab Content Area -->
       <div class="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
-        
+
         <!-- Tab: Descarga & Build (NUEVO) -->
         <div id="tabBuild" class="tab-pane hidden space-y-4">
-          
+
           <!-- Banner de ubicación real de descargas -->
           <div class="bg-slate-900/90 border border-slate-700/60 rounded-lg p-2.5 text-[11px] space-y-1.5">
             <div class="flex items-center justify-between">
               <span class="text-slate-300 font-semibold flex items-center gap-1">
                 <span>📁</span> Carpeta de descargas PBF:
               </span>
-              <button id="btnOpenDownloadsFolder" class="bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 px-2 py-0.5 rounded text-[10px] font-medium transition flex items-center gap-1">
+              <button id="btnOpenDownloadsFolder"
+                class="bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 px-2 py-0.5 rounded text-[10px] font-medium transition flex items-center gap-1">
                 <span>📂 Abrir en Windows</span>
               </button>
             </div>
-            <div class="font-mono text-slate-300 text-[10px] truncate select-all bg-slate-950 p-1.5 rounded border border-slate-800" id="downloadsPathDisplay">
+            <div
+              class="font-mono text-slate-300 text-[10px] truncate select-all bg-slate-950 p-1.5 rounded border border-slate-800"
+              id="downloadsPathDisplay">
               D:\Desarrollos\importOsmDataFromPbf\downloads
             </div>
             <p class="text-[10px] text-slate-400">
-              💡 Los archivos se descargan en la carpeta interna del proyecto (<code class="text-indigo-300 font-mono">downloads\</code>), no en tu carpeta personal de Windows.
+              💡 Los archivos se descargan en la carpeta interna del proyecto (<code
+                class="text-indigo-300 font-mono">downloads\</code>), no en tu carpeta personal de Windows.
+            </p>
+          </div>
+
+          <!-- Banner de ubicación real de salida GPKG -->
+          <div class="bg-slate-900/90 border border-slate-700/60 rounded-lg p-2.5 text-[11px] space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-300 font-semibold flex items-center gap-1">
+                <span>📦</span> Carpeta de salida (.gpkg y reportes):
+              </span>
+              <button id="btnOpenOutputFolder"
+                class="bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/60 px-2 py-0.5 rounded text-[10px] font-medium transition flex items-center gap-1">
+                <span>📂 Abrir en Windows</span>
+              </button>
+            </div>
+            <div
+              class="font-mono text-emerald-400 text-[10px] truncate select-all bg-slate-950 p-1.5 rounded border border-slate-800"
+              id="outputPathDisplay">
+              D:\Desarrollos\importOsmDataFromPbf\output
+            </div>
+            <p class="text-[10px] text-slate-400">
+              💡 Aquí quedan guardados los archivos generados. Puedes borrar su contenido cuando quieras para liberar
+              espacio; no afecta los PBF descargados.
             </p>
           </div>
 
@@ -191,14 +316,17 @@
 
             <!-- Input de búsqueda -->
             <div class="flex gap-1.5">
-              <input type="text" id="regionSearchInput" placeholder="Ej. argentina, chile, colombia, madrid..." class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-              <button id="btnSearchRegions" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-3 py-1.5 rounded-lg text-xs transition">
+              <input type="text" id="regionSearchInput" placeholder="Ej. argentina, chile, colombia, madrid..."
+                class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+              <button id="btnSearchRegions"
+                class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-3 py-1.5 rounded-lg text-xs transition">
                 Buscar
               </button>
             </div>
 
             <!-- Lista de resultados de Geofabrik -->
-            <div id="regionSearchResults" class="space-y-1.5 max-h-36 overflow-y-auto hidden border-t border-slate-700/50 pt-2">
+            <div id="regionSearchResults"
+              class="space-y-1.5 max-h-36 overflow-y-auto hidden border-t border-slate-700/50 pt-2">
               <p class="text-slate-400 text-[11px]">Escribe un país o región para buscar...</p>
             </div>
 
@@ -225,13 +353,17 @@
             <!-- PBF Seleccionado -->
             <div>
               <label class="block text-[11px] text-slate-400 font-medium mb-1">Archivo .pbf a procesar:</label>
-              <input type="text" id="buildPbfInput" placeholder="Selecciona un archivo descargado arriba o escribe su ruta" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono" />
+              <input type="text" id="buildPbfInput"
+                placeholder="Selecciona un archivo descargado arriba o escribe su ruta"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono" />
             </div>
 
             <!-- Perfil JSON -->
             <div>
               <label class="block text-[11px] text-slate-400 font-medium mb-1">Perfil de destino:</label>
-              <select id="buildProfileSelect" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500">
+              <select id="buildProfileSelect"
+                title="Define las reglas viales, velocidades, factores de costo y algoritmos de partición de arcos"
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500">
                 <option value="">Cargando perfiles...</option>
               </select>
               <span id="profileDescription" class="text-[10px] text-slate-400 block mt-1 italic"></span>
@@ -240,27 +372,60 @@
             <!-- Bounding Box (Área Operativa) -->
             <div class="space-y-1.5 pt-1 border-t border-slate-700/40">
               <div class="flex items-center justify-between">
-                <label class="text-[11px] text-slate-400 font-medium">Área Operativa (Bounding Box):</label>
-                <button type="button" id="btnCaptureBbox" class="text-emerald-400 hover:text-emerald-300 font-medium text-[10px] flex items-center gap-1 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded">
-                  <span>🎯 Capturar del mapa</span>
-                </button>
+                <label class="text-[11px] text-slate-300 font-semibold flex items-center gap-1"
+                  title="Límites geográficos del área que se extraerá del archivo PBF. Vías fuera de este recuadro se descartan.">
+                  <span>📐</span> Área Operativa (Bounding Box)
+                </label>
+                <div class="flex items-center gap-1">
+                  <button type="button" id="btnDrawBbox"
+                    title="📐 Haz clic y arrastra directamente en el mapa para delimitar el área exacta con un rectángulo visual"
+                    class="text-indigo-200 hover:text-white font-medium text-[10px] flex items-center gap-1 bg-indigo-600 hover:bg-indigo-500 border border-indigo-500 px-2 py-0.5 rounded transition shadow-sm">
+                    <span>✏️ Dibujar área</span>
+                  </button>
+                  <button type="button" id="btnCaptureBbox"
+                    title="🎯 Captura automáticamente las 4 coordenadas visibles en tu pantalla actual del mapa"
+                    class="text-emerald-400 hover:text-emerald-300 font-medium text-[10px] flex items-center gap-1 bg-emerald-950/60 border border-emerald-800/40 px-1.5 py-0.5 rounded transition">
+                    <span>🎯 Capturar vista</span>
+                  </button>
+                  <button type="button" id="btnClearBbox"
+                    title="❌ Borrar las coordenadas y retirar el recuadro del mapa"
+                    class="text-rose-400 hover:text-rose-300 font-medium text-[10px] flex items-center bg-rose-950/60 border border-rose-800/40 px-1.5 py-0.5 rounded transition hidden">
+                    <span>✕</span>
+                  </button>
+                </div>
               </div>
+              <p class="text-[10px] text-slate-400">
+                Usa <b>✏️ Dibujar área</b> para arrastrar un recuadro en el mapa, o <b>🎯 Capturar vista</b> para tomar
+                las coordenadas visibles.
+              </p>
               <div class="grid grid-cols-2 gap-2 text-[11px]">
                 <div>
-                  <span class="text-slate-500 text-[10px] block">Min Lon (Oeste):</span>
-                  <input type="number" step="0.0001" id="bboxMinLon" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                  <span class="text-slate-500 text-[10px] block" title="Coordenada límite oeste (grados decimales)">Min
+                    Lon (Oeste):</span>
+                  <input type="number" step="0.0001" id="bboxMinLon" placeholder="-73.07"
+                    title="Longitud mínima (oeste) en grados decimales WGS84"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono focus:border-indigo-500 focus:outline-none" />
                 </div>
                 <div>
-                  <span class="text-slate-500 text-[10px] block">Min Lat (Sur):</span>
-                  <input type="number" step="0.0001" id="bboxMinLat" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                  <span class="text-slate-500 text-[10px] block" title="Coordenada límite sur (grados decimales)">Min
+                    Lat (Sur):</span>
+                  <input type="number" step="0.0001" id="bboxMinLat" placeholder="6.97"
+                    title="Latitud mínima (sur) en grados decimales WGS84"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono focus:border-indigo-500 focus:outline-none" />
                 </div>
                 <div>
-                  <span class="text-slate-500 text-[10px] block">Max Lon (Este):</span>
-                  <input type="number" step="0.0001" id="bboxMaxLon" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                  <span class="text-slate-500 text-[10px] block" title="Coordenada límite este (grados decimales)">Max
+                    Lon (Este):</span>
+                  <input type="number" step="0.0001" id="bboxMaxLon" placeholder="-73.03"
+                    title="Longitud máxima (este) en grados decimales WGS84"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono focus:border-indigo-500 focus:outline-none" />
                 </div>
                 <div>
-                  <span class="text-slate-500 text-[10px] block">Max Lat (Norte):</span>
-                  <input type="number" step="0.0001" id="bboxMaxLat" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                  <span class="text-slate-500 text-[10px] block" title="Coordenada límite norte (grados decimales)">Max
+                    Lat (Norte):</span>
+                  <input type="number" step="0.0001" id="bboxMaxLat" placeholder="7.00"
+                    title="Latitud máxima (norte) en grados decimales WGS84"
+                    class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono focus:border-indigo-500 focus:outline-none" />
                 </div>
               </div>
             </div>
@@ -268,18 +433,27 @@
             <!-- Parámetros adicionales -->
             <div class="grid grid-cols-2 gap-2 text-[11px]">
               <div>
-                <label class="text-slate-500 text-[10px] block">Buffer adicional (m):</label>
-                <input type="number" id="buildBufferMeters" value="20000" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white" />
+                <label class="text-slate-500 text-[10px] block"
+                  title="Margen perimetral adicional (en metros) alrededor del Bounding Box para asegurar conectividad y no cortar calles en los bordes">Buffer
+                  adicional (m):</label>
+                <input type="number" id="buildBufferMeters" value="20000"
+                  title="Margen de seguridad en metros alrededor del área operativa (default: 20000 m = 20 km)"
+                  class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white focus:border-indigo-500 focus:outline-none" />
               </div>
               <div>
-                <label class="text-slate-500 text-[10px] block">Nombre de salida:</label>
-                <input type="text" id="buildOutName" placeholder="Auto (.gpkg)" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white" />
+                <label class="text-slate-500 text-[10px] block"
+                  title="Nombre para el archivo .gpkg. Si lo dejas vacío, se genera automáticamente con el nombre de la región y la fecha">Nombre
+                  de salida:</label>
+                <input type="text" id="buildOutName" placeholder="Auto (.gpkg)"
+                  title="Nombre personalizado para el archivo .gpkg de salida (opcional)"
+                  class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white focus:border-indigo-500 focus:outline-none" />
               </div>
             </div>
 
-            <!-- Botón de Ejecutar Build -->
-            <button id="btnStartBuild" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-3 rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow-md">
-              <span>🚀 Iniciar Construcción de Red (Build)</span>
+            <!-- Botón de Ejecutar Build (con pre-confirmación) -->
+            <button id="btnStartBuild" title="🚀 Revisar parámetros y confirmar la construcción del GeoPackage (.gpkg)"
+              class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-3 rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow-md">
+              <span>🚀 Construir Red Vial (Build)...</span>
             </button>
           </div>
 
@@ -291,32 +465,80 @@
               </span>
               <button id="btnClearLogs" class="text-[10px] text-slate-500 hover:text-slate-300">Limpiar</button>
             </div>
-            <div id="liveConsole" class="bg-black/80 font-mono text-[10px] p-2.5 rounded-lg border border-slate-800 text-slate-300 h-36 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+            <div id="liveConsole"
+              class="bg-black/80 font-mono text-[10px] p-2.5 rounded-lg border border-slate-800 text-slate-300 h-36 overflow-y-auto whitespace-pre-wrap leading-relaxed">
               <span class="text-slate-600">// Los logs de descargas y builds aparecerán aquí...</span>
             </div>
           </div>
 
         </div>
-        
+
         <!-- Tab 1: Métricas -->
         <div id="tabMetrics" class="tab-pane space-y-4">
+          <!-- Ubicación física del archivo seleccionado y carpeta output -->
+          <div class="bg-slate-900/90 border border-slate-700/60 rounded-lg p-2.5 text-[11px] space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-300 font-semibold flex items-center gap-1">
+                <span>📦</span> Archivo GeoPackage activo:
+              </span>
+              <button id="btnOpenOutputFileFolder"
+                class="bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/60 px-2 py-0.5 rounded text-[10px] font-medium transition flex items-center gap-1">
+                <span>📂 Abrir carpeta</span>
+              </button>
+            </div>
+            <div id="outputActiveFileDisplay"
+              class="font-mono text-emerald-400 text-[10px] truncate select-all bg-slate-950 p-1.5 rounded border border-slate-800"
+              title="Ruta completa del archivo .gpkg">
+              output/
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-400">
+              <span id="outputFileSizeDisplay">Tamaño: --</span>
+              <span id="outputFileDateDisplay">Modificado: --</span>
+            </div>
+          </div>
+
           <!-- Tarjetas Resumen -->
           <div class="grid grid-cols-2 gap-2">
-            <div class="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/50">
+            <div class="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/50"
+              title="Longitud total acumulada de todas las carreteras y calles de esta red (en kilómetros)">
               <span class="text-slate-400 text-[11px] block">Longitud Vial</span>
               <span id="metricKm" class="text-base font-bold text-white mt-0.5 block">--</span>
             </div>
-            <div class="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/50">
+            <div class="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/50"
+              title="Cantidad total de micro-segmentos viales con topología, longitud y sentidos de circulación calculados">
               <span class="text-slate-400 text-[11px] block">Segmentos</span>
               <span id="metricSegments" class="text-base font-bold text-white mt-0.5 block">--</span>
             </div>
-            <div class="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/50">
+            <div class="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/50"
+              title="Total de nodos topológicos (intersecciones, cambios de vía y terminales)">
               <span class="text-slate-400 text-[11px] block">Nodos Conexión</span>
               <span id="metricNodes" class="text-base font-bold text-white mt-0.5 block">--</span>
             </div>
-            <div class="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/50">
+            <div class="bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/50"
+              title="Cantidad de redes viales aisladas/desconectadas entre sí. Lo ideal es 1 (red continua y 100% transitable)">
               <span class="text-slate-400 text-[11px] block">Componentes</span>
               <span id="metricComponents" class="text-base font-bold text-white mt-0.5 block">--</span>
+            </div>
+          </div>
+
+          <!-- Cobertura y Límites Geográficos de la Red -->
+          <div class="bg-slate-900/90 border border-cyan-800/40 rounded-lg p-2.5 text-[11px] space-y-1.5"
+            title="Alcance territorial del ruteo. Las rutas cargadas terminan en este marco">
+            <div class="flex items-center justify-between">
+              <span class="text-cyan-300 font-semibold flex items-center gap-1">
+                <span>🌐</span> Cobertura de Ruteo:
+              </span>
+              <button id="btnCenterOnBoundaryMetrics"
+                class="text-cyan-400 hover:text-cyan-200 text-[10px] font-medium flex items-center gap-0.5 transition">
+                <span>Centrar área ↗</span>
+              </button>
+            </div>
+            <div class="flex items-center justify-between text-slate-300 text-[11px]">
+              <span id="metricCoverageDimensions" class="font-medium">-- km × -- km</span>
+              <span id="metricCoverageArea" class="text-cyan-400 font-medium">-- km²</span>
+            </div>
+            <div id="metricCoverageCoords" class="text-[10px] font-mono text-slate-400 border-t border-slate-800 pt-1">
+              Lat: [--, --] | Lon: [--, --]
             </div>
           </div>
 
@@ -344,12 +566,51 @@
             </div>
           </div>
 
+          <!-- Guía Visual de Sentido de Circulación -->
+          <div class="bg-slate-900/90 border border-slate-700/60 rounded-lg p-2.5 space-y-1.5 text-[11px]"
+            title="Diferenciación visual entre vías de doble sentido y sentido único">
+            <h4 class="font-semibold text-slate-300 uppercase tracking-wider text-[10px] flex items-center gap-1">
+              <span>🔄</span> Sentido de Circulación
+            </h4>
+            <div class="space-y-1 text-slate-300 text-[11px]">
+              <div class="flex items-center justify-between">
+                <span class="flex items-center gap-2">
+                  <span class="w-6 h-1.5 rounded-full bg-emerald-400 shadow-sm flex-shrink-0"></span>
+                  <span><b>Doble Sentido:</b></span>
+                </span>
+                <span class="text-emerald-400 font-semibold text-[10px]">Tono fuerte & sólido</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="flex items-center gap-2">
+                  <span
+                    class="w-6 h-1 rounded-full bg-emerald-300/50 border border-emerald-400/30 flex-shrink-0"></span>
+                  <span><b>Sentido Único:</b></span>
+                </span>
+                <span class="text-slate-400 text-[10px]">Tonalidad suave</span>
+              </div>
+            </div>
+          </div>
+
           <hr class="border-slate-800" />
 
           <div class="space-y-2">
             <h3 class="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">Elementos Adicionales</h3>
-            <label class="flex items-center gap-2 cursor-pointer text-slate-300">
-              <input type="checkbox" id="chkShowNodes" class="rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-0" />
+            <label class="flex items-center gap-2 cursor-pointer text-slate-300"
+              title="Demarcación visual con recuadro luminoso que delimita el alcance geográfico de la red vial cargada">
+              <input type="checkbox" id="chkShowNetworkBoundary" checked
+                class="rounded bg-slate-800 border-slate-700 text-cyan-500 focus:ring-0" />
+              <div class="flex items-center justify-between w-full pr-1">
+                <span class="flex items-center gap-1.5 font-medium text-cyan-300">
+                  <span class="inline-block w-2.5 h-2.5 rounded-sm border border-cyan-400 bg-cyan-500/20"></span>
+                  Demarcación de límites de red
+                </span>
+                <span id="boundaryDimensionsBadge" class="text-[10px] text-slate-400 font-mono"></span>
+              </div>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-slate-300"
+              title="Muestra puntos verdes interactivos en cada nodo topológico de la red cuando el zoom es 14 o mayor">
+              <input type="checkbox" id="chkShowNodes"
+                class="rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-0" />
               <span>Mostrar Nodos de Conexión (zoom ≥ 14)</span>
             </label>
           </div>
@@ -359,19 +620,27 @@
           <div class="space-y-2">
             <h3 class="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">Estilo de Mapa Base</h3>
             <div class="grid grid-cols-2 gap-2" id="basemapSelectors">
-              <button data-basemap="dark" class="basemap-btn active bg-slate-800 border border-emerald-500 text-emerald-400 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
+              <button data-basemap="dark"
+                title="Tema vectorial oscuro CartoDB Dark Matter, ideal para destacar las carreteras de colores"
+                class="basemap-btn active bg-slate-800 border border-emerald-500 text-emerald-400 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
                 <span class="font-medium block text-xs">🌙 Oscuro</span>
                 <span class="text-[10px] text-slate-400">CartoDB Dark</span>
               </button>
-              <button data-basemap="positron" class="basemap-btn bg-slate-800/50 border border-slate-700 text-slate-300 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
+              <button data-basemap="positron"
+                title="Tema vectorial claro CartoDB Positron con fondo blanco para máximo contraste diurno"
+                class="basemap-btn bg-slate-800/50 border border-slate-700 text-slate-300 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
                 <span class="font-medium block text-xs">☀️ Claro</span>
                 <span class="text-[10px] text-slate-400">CartoDB Positron</span>
               </button>
-              <button data-basemap="satellite" class="basemap-btn bg-slate-800/50 border border-slate-700 text-slate-300 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
+              <button data-basemap="satellite"
+                title="Ortofoto satelital de alta resolución y limpia de Esri World Imagery"
+                class="basemap-btn bg-slate-800/50 border border-slate-700 text-slate-300 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
                 <span class="font-medium block text-xs">🛰️ Satelital</span>
                 <span class="text-[10px] text-slate-400">Esri World Imagery</span>
               </button>
-              <button data-basemap="hybrid" class="basemap-btn bg-slate-800/50 border border-slate-700 text-slate-300 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
+              <button data-basemap="hybrid"
+                title="Fotografía satelital combinada con etiquetas de calles, pueblos y lugares de Google Maps"
+                class="basemap-btn bg-slate-800/50 border border-slate-700 text-slate-300 p-2 rounded-lg text-left transition hover:bg-slate-700/80">
                 <span class="font-medium block text-xs">🌍 Híbrido</span>
                 <span class="text-[10px] text-slate-400">Satélite + Etiquetas</span>
               </button>
@@ -390,28 +659,115 @@
 
       <!-- Leyenda de colores rápida en el pie del panel -->
       <div class="p-3 bg-slate-950/60 border-t border-slate-800 flex flex-wrap gap-2 text-[10px] text-slate-400">
-        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span> Autopista</span>
-        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span> Primaria</span>
-        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> Secundaria</span>
-        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span> Terciaria</span>
-        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span> Residencial</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
+          Autopista</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
+          Primaria</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+          Secundaria</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+          Terciaria</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+          Residencial</span>
       </div>
 
     </aside>
 
     <!-- Zoom & Coords Helper -->
-    <div class="absolute bottom-4 right-4 bg-slate-900/80 backdrop-blur border border-slate-800 rounded-lg px-2.5 py-1 text-[11px] text-slate-400 z-10 flex items-center gap-2">
+    <div
+      class="absolute bottom-4 right-4 bg-slate-900/80 backdrop-blur border border-slate-800 rounded-lg px-2.5 py-1 text-[11px] text-slate-400 z-10 flex items-center gap-2">
       <span id="zoomDisplay">Zoom: --</span>
       <span>•</span>
       <span id="coordsDisplay">Lon, Lat</span>
     </div>
   </div>
 
+  <!-- MODAL DE PRE-CONFIRMACIÓN DE CONSTRUCCIÓN DE RED -->
+  <div id="confirmBuildModal"
+    class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl max-w-lg w-full p-5 space-y-4 text-left">
+      <!-- Encabezado -->
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div
+            class="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-lg">
+            ⚙️
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Confirmar Construcción de Red Vial</h3>
+            <p class="text-[11px] text-slate-400">Verifica los parámetros antes de generar el GeoPackage</p>
+          </div>
+        </div>
+        <button type="button" id="btnCancelConfirmBuildX"
+          class="text-slate-400 hover:text-white p-1 rounded-lg text-lg transition">
+          ✕
+        </button>
+      </div>
+
+      <!-- Resumen de Parámetros -->
+      <div class="space-y-2.5 text-xs">
+        <!-- Archivo PBF -->
+        <div class="bg-slate-950/70 border border-slate-800 p-2.5 rounded-lg space-y-0.5">
+          <span class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">1. Archivo Fuente
+            (.osm.pbf)</span>
+          <span id="confirmPbfPath" class="font-mono text-emerald-400 text-[11px] break-all block">--</span>
+        </div>
+
+        <!-- Perfil y Salida -->
+        <div class="grid grid-cols-2 gap-2">
+          <div class="bg-slate-950/70 border border-slate-800 p-2.5 rounded-lg space-y-0.5">
+            <span class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">2. Perfil Vial</span>
+            <span id="confirmProfile" class="font-medium text-slate-200 block truncate">--</span>
+          </div>
+          <div class="bg-slate-950/70 border border-slate-800 p-2.5 rounded-lg space-y-0.5">
+            <span class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">3. Archivo
+              Destino</span>
+            <span id="confirmOutName" class="font-mono text-cyan-400 text-[11px] block truncate">--</span>
+          </div>
+        </div>
+
+        <!-- Bounding Box / Cobertura -->
+        <div id="confirmBboxContainer" class="bg-slate-950/70 border border-slate-800 p-2.5 rounded-lg space-y-1">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">4. Área Operativa
+              (Bounding Box)</span>
+            <span id="confirmBboxBadge" class="text-[10px] font-medium px-2 py-0.5 rounded-full"></span>
+          </div>
+          <div id="confirmBboxDetails" class="font-mono text-[11px] text-slate-300"></div>
+          <div id="confirmBufferDetails" class="text-[10px] text-slate-400"></div>
+        </div>
+
+        <!-- Advertencia si no hay BBox -->
+        <div id="confirmNoBboxWarning"
+          class="bg-amber-950/30 border border-amber-800/40 p-2.5 rounded-lg text-amber-300 text-[11px] flex items-start gap-2 hidden">
+          <span class="text-base flex-shrink-0">⚠️</span>
+          <span><b>Sin Bounding Box definido:</b> Se procesará el extracto completo. Para archivos grandes puede tomar
+            varios minutos. Si solo deseas una ciudad o zona específica, cancela y usa <b>✏️ Dibujar área</b> en el
+            mapa.</span>
+        </div>
+      </div>
+
+      <!-- Acciones de confirmación -->
+      <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
+        <button type="button" id="btnCancelConfirmBuild"
+          class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-medium transition">
+          Cancelar
+        </button>
+        <button type="button" id="btnExecuteBuildConfirmed"
+          class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow-md">
+          <span>🚀 Confirmar e Iniciar Build</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL / OVERLAY DE BLOQUEO TOTAL DURANTE DESCARGAS O BUILD -->
-  <div id="busyOverlay" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+  <div id="busyOverlay"
+    class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4 text-center">
       <!-- Animated Icon -->
-      <div id="busyIconContainer" class="w-16 h-16 mx-auto rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-3xl animate-bounce">
+      <div id="busyIconContainer"
+        class="w-16 h-16 mx-auto rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-3xl animate-bounce">
         <span id="busyIcon">⏳</span>
       </div>
       <div>
@@ -425,14 +781,18 @@
       </div>
 
       <!-- Logs en vivo dentro del modal -->
-      <div class="bg-black/85 rounded-lg p-3 border border-slate-800 text-left font-mono text-[10px] text-slate-300 h-36 overflow-y-auto whitespace-pre-wrap leading-relaxed" id="busyConsole">
+      <div
+        class="bg-black/85 rounded-lg p-3 border border-slate-800 text-left font-mono text-[10px] text-slate-300 h-36 overflow-y-auto whitespace-pre-wrap leading-relaxed"
+        id="busyConsole">
         <span class="text-slate-600">// Conectando con el proceso...</span>
       </div>
 
       <div class="text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
         <svg class="animate-spin h-3.5 w-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          <path class="opacity-75" fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+          </path>
         </svg>
         <span>Interfaz bloqueada para proteger la integridad de los datos</span>
       </div>
@@ -440,21 +800,39 @@
   </div>
 
   <script>
-    // Configuración de capas y estilos de colores
+    // Paleta de colores para vías de DOBLE SENTIDO (tonos fuertes y sólidos)
     const HIGHWAY_COLORS = {
       'motorway': '#f97316',
-      'motorway_link': '#fb923c',
+      'motorway_link': '#ea580c',
       'trunk': '#ef4444',
-      'trunk_link': '#f87171',
+      'trunk_link': '#dc2626',
       'primary': '#eab308',
-      'primary_link': '#facc15',
+      'primary_link': '#ca8a04',
       'secondary': '#10b981',
-      'secondary_link': '#34d399',
+      'secondary_link': '#059669',
       'tertiary': '#06b6d4',
-      'tertiary_link': '#22d3ee',
-      'residential': '#94a3b8',
+      'tertiary_link': '#0891b2',
+      'residential': '#cbd5e1',
       'service': '#a855f7',
       'track': '#78716c',
+      'unclassified': '#64748b'
+    };
+
+    // Paleta de colores para vías de SENTIDO ÚNICO (misma familia pero en tonalidad más suave / pastel)
+    const HIGHWAY_COLORS_ONEWAY = {
+      'motorway': '#fdba74',
+      'motorway_link': '#fed7aa',
+      'trunk': '#fca5a5',
+      'trunk_link': '#fecaca',
+      'primary': '#fde047',
+      'primary_link': '#fef08a',
+      'secondary': '#6ee7b7',
+      'secondary_link': '#a7f3d0',
+      'tertiary': '#67e8f9',
+      'tertiary_link': '#a5f3fc',
+      'residential': '#64748b',
+      'service': '#d8b4fe',
+      'track': '#a8a29e',
       'unclassified': '#64748b'
     };
 
@@ -514,8 +892,13 @@
     let currentMetadata = null;
     let abortController = null;
     let availableProfiles = [];
+    let availableFiles = [];
+    let currentOutputDir = '';
     let lastSegmentsGeoJson = { type: 'FeatureCollection', features: [] };
     let lastNodesGeoJson = { type: 'FeatureCollection', features: [] };
+    let showNetworkBoundary = true;
+    let currentNetworkBoundsGeoJson = { type: 'FeatureCollection', features: [] };
+    let currentNetworkCornersGeoJson = { type: 'FeatureCollection', features: [] };
     let interactionsInitialized = false;
 
     // Inicializar mapa MapLibre
@@ -533,6 +916,15 @@
     const gpkgSelect = document.getElementById('gpkgSelect');
     const loadingIndicator = document.getElementById('loadingIndicator');
     const btnFitBounds = document.getElementById('btnFitBounds');
+    const btnToggleNetworkBoundary = document.getElementById('btnToggleNetworkBoundary');
+    const chkShowNetworkBoundary = document.getElementById('chkShowNetworkBoundary');
+    const boundaryDimensionsBadge = document.getElementById('boundaryDimensionsBadge');
+    const boundaryOverlayBadge = document.getElementById('boundaryOverlayBadge');
+    const boundaryOverlayText = document.getElementById('boundaryOverlayText');
+    const btnCenterOnBoundaryMetrics = document.getElementById('btnCenterOnBoundaryMetrics');
+    const metricCoverageDimensions = document.getElementById('metricCoverageDimensions');
+    const metricCoverageArea = document.getElementById('metricCoverageArea');
+    const metricCoverageCoords = document.getElementById('metricCoverageCoords');
     const btnToggleSidebar = document.getElementById('btnToggleSidebar');
     const btnOpenBuildTab = document.getElementById('btnOpenBuildTab');
     const sidebar = document.getElementById('sidebar');
@@ -605,11 +997,13 @@
           type: 'geojson',
           data: lastSegmentsGeoJson
         });
+      } else if (lastSegmentsGeoJson && lastSegmentsGeoJson.features && lastSegmentsGeoJson.features.length > 0) {
+        map.getSource('segments').setData(lastSegmentsGeoJson);
       }
 
       const isSat = currentBasemap === 'satellite' || currentBasemap === 'hybrid';
 
-      // Capa de fondo/glow para resaltar líneas
+      // Capa de fondo/glow para resaltar líneas (más pronunciado en doble sentido)
       if (!map.getLayer('segments-glow')) {
         map.addLayer({
           id: 'segments-glow',
@@ -619,12 +1013,17 @@
           paint: {
             'line-color': isSat ? '#000000' : '#ffffff',
             'line-width': ['interpolate', ['linear'], ['zoom'], 6, 2, 14, 5],
-            'line-opacity': isSat ? 0.6 : 0.15
+            'line-opacity': [
+              'case',
+              ['boolean', ['get', 'is_oneway'], false],
+              isSat ? 0.35 : 0.08, // brillo suave para único sentido
+              isSat ? 0.70 : 0.20  // brillo fuerte y nítido para doble sentido
+            ]
           }
         });
       }
 
-      // Capa de líneas coloreadas según highway
+      // Capa de líneas coloreadas según highway y diferenciadas por sentido
       if (!map.getLayer('segments-line')) {
         map.addLayer({
           id: 'segments-line',
@@ -633,32 +1032,63 @@
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: {
             'line-color': [
-              'match',
-              ['get', 'highway'],
-              'motorway', HIGHWAY_COLORS.motorway,
-              'motorway_link', HIGHWAY_COLORS.motorway_link,
-              'trunk', HIGHWAY_COLORS.trunk,
-              'trunk_link', HIGHWAY_COLORS.trunk_link,
-              'primary', HIGHWAY_COLORS.primary,
-              'primary_link', HIGHWAY_COLORS.primary_link,
-              'secondary', HIGHWAY_COLORS.secondary,
-              'secondary_link', HIGHWAY_COLORS.secondary_link,
-              'tertiary', HIGHWAY_COLORS.tertiary,
-              'tertiary_link', HIGHWAY_COLORS.tertiary_link,
-              'residential', HIGHWAY_COLORS.residential,
-              'service', HIGHWAY_COLORS.service,
-              'track', HIGHWAY_COLORS.track,
-              '#64748b' // default color
+              'case',
+              ['boolean', ['get', 'is_oneway'], false],
+              // Sentido único (is_oneway == true) -> Tonalidad más suave / pastel
+              [
+                'match',
+                ['get', 'highway'],
+                'motorway', HIGHWAY_COLORS_ONEWAY.motorway,
+                'motorway_link', HIGHWAY_COLORS_ONEWAY.motorway_link,
+                'trunk', HIGHWAY_COLORS_ONEWAY.trunk,
+                'trunk_link', HIGHWAY_COLORS_ONEWAY.trunk_link,
+                'primary', HIGHWAY_COLORS_ONEWAY.primary,
+                'primary_link', HIGHWAY_COLORS_ONEWAY.primary_link,
+                'secondary', HIGHWAY_COLORS_ONEWAY.secondary,
+                'secondary_link', HIGHWAY_COLORS_ONEWAY.secondary_link,
+                'tertiary', HIGHWAY_COLORS_ONEWAY.tertiary,
+                'tertiary_link', HIGHWAY_COLORS_ONEWAY.tertiary_link,
+                'residential', HIGHWAY_COLORS_ONEWAY.residential,
+                'service', HIGHWAY_COLORS_ONEWAY.service,
+                'track', HIGHWAY_COLORS_ONEWAY.track,
+                'unclassified', HIGHWAY_COLORS_ONEWAY.unclassified,
+                '#94a3b8'
+              ],
+              // Doble sentido (is_oneway == false) -> Color fuerte, saturado y sólido
+              [
+                'match',
+                ['get', 'highway'],
+                'motorway', HIGHWAY_COLORS.motorway,
+                'motorway_link', HIGHWAY_COLORS.motorway_link,
+                'trunk', HIGHWAY_COLORS.trunk,
+                'trunk_link', HIGHWAY_COLORS.trunk_link,
+                'primary', HIGHWAY_COLORS.primary,
+                'primary_link', HIGHWAY_COLORS.primary_link,
+                'secondary', HIGHWAY_COLORS.secondary,
+                'secondary_link', HIGHWAY_COLORS.secondary_link,
+                'tertiary', HIGHWAY_COLORS.tertiary,
+                'tertiary_link', HIGHWAY_COLORS.tertiary_link,
+                'residential', HIGHWAY_COLORS.residential,
+                'service', HIGHWAY_COLORS.service,
+                'track', HIGHWAY_COLORS.track,
+                'unclassified', HIGHWAY_COLORS.unclassified,
+                '#64748b'
+              ]
             ],
             'line-width': [
               'interpolate',
               ['linear'],
               ['zoom'],
-              6, 1.4,
-              12, 2.8,
-              16, 5
+              6, ['case', ['boolean', ['get', 'is_oneway'], false], 1.1, 1.8],
+              12, ['case', ['boolean', ['get', 'is_oneway'], false], 2.0, 3.2],
+              16, ['case', ['boolean', ['get', 'is_oneway'], false], 3.4, 5.2]
             ],
-            'line-opacity': 0.95
+            'line-opacity': [
+              'case',
+              ['boolean', ['get', 'is_oneway'], false],
+              0.55, // Tonalidad más suave y ligera para sentido único
+              1.0   // Tono fuerte y sólido para doble sentido
+            ]
           }
         });
       }
@@ -669,6 +1099,8 @@
           type: 'geojson',
           data: lastNodesGeoJson
         });
+      } else if (lastNodesGeoJson && lastNodesGeoJson.features && lastNodesGeoJson.features.length > 0) {
+        map.getSource('nodes').setData(lastNodesGeoJson);
       }
 
       // Capa de nodos (puntos verdes)
@@ -693,6 +1125,100 @@
         });
       }
 
+      // Fuente GeoJSON y capas para la Demarcación de Límites de la Red Vial cargada
+      if (!map.getSource('network-boundary-source')) {
+        map.addSource('network-boundary-source', {
+          type: 'geojson',
+          data: currentNetworkBoundsGeoJson
+        });
+      } else if (currentNetworkBoundsGeoJson && currentNetworkBoundsGeoJson.features && currentNetworkBoundsGeoJson.features.length > 0) {
+        map.getSource('network-boundary-source').setData(currentNetworkBoundsGeoJson);
+      }
+
+      if (!map.getSource('network-boundary-corners-source')) {
+        map.addSource('network-boundary-corners-source', {
+          type: 'geojson',
+          data: currentNetworkCornersGeoJson
+        });
+      } else if (currentNetworkCornersGeoJson && currentNetworkCornersGeoJson.features && currentNetworkCornersGeoJson.features.length > 0) {
+        map.getSource('network-boundary-corners-source').setData(currentNetworkCornersGeoJson);
+      }
+
+      // 1. Relleno suave del área territorial de la red
+      if (!map.getLayer('network-boundary-fill')) {
+        map.addLayer({
+          id: 'network-boundary-fill',
+          type: 'fill',
+          source: 'network-boundary-source',
+          layout: {
+            visibility: showNetworkBoundary ? 'visible' : 'none'
+          },
+          paint: {
+            'fill-color': '#06b6d4',
+            'fill-opacity': isSat ? 0.08 : 0.04
+          }
+        });
+      }
+
+      // 2. Glow exterior para destacar contraste en mapa satelital y vectorial
+      if (!map.getLayer('network-boundary-glow')) {
+        map.addLayer({
+          id: 'network-boundary-glow',
+          type: 'line',
+          source: 'network-boundary-source',
+          layout: {
+            visibility: showNetworkBoundary ? 'visible' : 'none',
+            'line-cap': 'round',
+            'line-join': 'round'
+          },
+          paint: {
+            'line-color': isSat ? '#000000' : '#0891b2',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 6, 4, 14, 8],
+            'line-opacity': isSat ? 0.6 : 0.35,
+            'line-blur': 2
+          }
+        });
+      }
+
+      // 3. Línea de demarcación perimétrica punteada
+      if (!map.getLayer('network-boundary-line')) {
+        map.addLayer({
+          id: 'network-boundary-line',
+          type: 'line',
+          source: 'network-boundary-source',
+          layout: {
+            visibility: showNetworkBoundary ? 'visible' : 'none',
+            'line-cap': 'round',
+            'line-join': 'round'
+          },
+          paint: {
+            'line-color': '#22d3ee',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 6, 2, 14, 3.5],
+            'line-dasharray': [6, 3],
+            'line-opacity': 0.95
+          }
+        });
+      }
+
+      // 4. Vértices o esquinas del BBox de la red
+      if (!map.getLayer('network-boundary-corners')) {
+        map.addLayer({
+          id: 'network-boundary-corners',
+          type: 'circle',
+          source: 'network-boundary-corners-source',
+          layout: {
+            visibility: showNetworkBoundary ? 'visible' : 'none'
+          },
+          paint: {
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, 3, 14, 5.5],
+            'circle-color': '#22d3ee',
+            'circle-stroke-color': '#0f172a',
+            'circle-stroke-width': 2,
+            'circle-opacity': 1
+          }
+        });
+      }
+
       setupInteractions();
     }
 
@@ -702,9 +1228,11 @@
 
       // Interacción: Popup al hacer click en un segmento
       map.on('click', 'segments-line', (e) => {
+        if (isDrawingBbox) return;
         if (!e.features || !e.features[0]) return;
         const p = e.features[0].properties;
-        const color = HIGHWAY_COLORS[p.highway] || '#64748b';
+        const isOne = Boolean(p.is_oneway);
+        const color = isOne ? (HIGHWAY_COLORS_ONEWAY[p.highway] || '#64748b') : (HIGHWAY_COLORS[p.highway] || '#64748b');
 
         const html = `
           <div class="space-y-2 text-xs">
@@ -715,7 +1243,12 @@
             <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-slate-300">
               <div><span class="text-slate-500">Longitud:</span> <span class="font-medium text-white">${p.length_m} m</span></div>
               <div><span class="text-slate-500">Costo:</span> <span class="font-medium text-white">${p.travel_cost}</span></div>
-              <div><span class="text-slate-500">Sentido:</span> <span class="font-medium text-white">${p.is_oneway ? 'Único ➔' : 'Doble vía'}</span></div>
+              <div>
+                <span class="text-slate-500">Sentido:</span> 
+                <span class="font-semibold ${isOne ? 'text-amber-300' : 'text-emerald-400'}">
+                  ${isOne ? 'Único ➔' : 'Doble vía ⇄'}
+                </span>
+              </div>
               <div><span class="text-slate-500">Vel. máx:</span> <span class="font-medium text-white">${p.max_speed ? p.max_speed + ' km/h' : 'N/D'}</span></div>
               <div><span class="text-slate-500">Carriles:</span> <span class="font-medium text-white">${p.lanes ?? 'N/D'}</span></div>
               <div><span class="text-slate-500">Fid:</span> <span class="font-mono text-slate-400">#${p.fid}</span></div>
@@ -754,6 +1287,20 @@
       });
       map.on('mouseenter', 'nodes-circle', () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', 'nodes-circle', () => { map.getCanvas().style.cursor = ''; });
+
+      // Click y hover en el límite o esquinas de la red vial
+      map.on('click', 'network-boundary-line', (e) => {
+        if (isDrawingBbox) return;
+        showBoundaryPopup(e.lngLat);
+      });
+      map.on('click', 'network-boundary-corners', (e) => {
+        if (isDrawingBbox) return;
+        showBoundaryPopup(e.lngLat);
+      });
+      map.on('mouseenter', 'network-boundary-line', () => { if (!isDrawingBbox) map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'network-boundary-line', () => { if (!isDrawingBbox) map.getCanvas().style.cursor = ''; });
+      map.on('mouseenter', 'network-boundary-corners', () => { if (!isDrawingBbox) map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'network-boundary-corners', () => { if (!isDrawingBbox) map.getCanvas().style.cursor = ''; });
     }
 
     // Listar archivos GeoPackage disponibles
@@ -761,10 +1308,20 @@
       try {
         const res = await fetch('/api/files');
         const data = await res.json();
-        
+
+        availableFiles = data.files || [];
+        currentOutputDir = data.outputDir || '';
+
+        const outputPathDisplay = document.getElementById('outputPathDisplay');
+        if (outputPathDisplay && currentOutputDir) {
+          outputPathDisplay.textContent = currentOutputDir;
+        }
+
         gpkgSelect.innerHTML = '';
         if (!data.files || data.files.length === 0) {
           gpkgSelect.innerHTML = '<option value="">No hay archivos .gpkg en output/</option>';
+          const fileDisplay = document.getElementById('outputActiveFileDisplay');
+          if (fileDisplay) fileDisplay.textContent = '(Sin archivos en output/)';
           return;
         }
 
@@ -794,6 +1351,22 @@
       if (!fileName) return;
 
       try {
+        const found = (availableFiles || []).find(f => f.fileName === fileName);
+        const fileDisplay = document.getElementById('outputActiveFileDisplay');
+        const sizeDisplay = document.getElementById('outputFileSizeDisplay');
+        const dateDisplay = document.getElementById('outputFileDateDisplay');
+        if (found) {
+          if (fileDisplay) fileDisplay.textContent = found.fullPath || `${currentOutputDir}\\${found.fileName}`;
+          if (sizeDisplay) {
+            const mb = (found.sizeBytes / (1024 * 1024)).toFixed(1);
+            sizeDisplay.textContent = `Tamaño: ${mb} MB`;
+          }
+          if (dateDisplay && found.lastModifiedUtc) {
+            const d = new Date(found.lastModifiedUtc);
+            dateDisplay.textContent = `Modificado: ${d.toLocaleString()}`;
+          }
+        }
+
         const res = await fetch(`/api/info?file=${encodeURIComponent(fileName)}`);
         const meta = await res.json();
         currentMetadata = meta;
@@ -826,8 +1399,9 @@
         // Paridad
         renderParity(meta);
 
-        // Centrar mapa si hay bounds y actualizar rutas al finalizar el movimiento
+        // Centrar mapa si hay bounds y actualizar demarcación visual de la red vial
         if (meta.bounds) {
+          updateNetworkBoundary(meta.bounds);
           map.fitBounds([
             [meta.bounds.minLon, meta.bounds.minLat],
             [meta.bounds.maxLon, meta.bounds.maxLat]
@@ -836,6 +1410,8 @@
           map.once('moveend', () => {
             updateViewportData();
           });
+        } else {
+          updateNetworkBoundary(null);
         }
 
         // Llamar también de inmediato
@@ -854,11 +1430,178 @@
       map.once('moveend', () => updateViewportData());
     }
 
+    function updateNetworkBoundary(bounds) {
+      if (!bounds || bounds.minLon == null || bounds.minLat == null || bounds.maxLon == null || bounds.maxLat == null) {
+        currentNetworkBoundsGeoJson = { type: 'FeatureCollection', features: [] };
+        currentNetworkCornersGeoJson = { type: 'FeatureCollection', features: [] };
+        if (boundaryDimensionsBadge) boundaryDimensionsBadge.textContent = '';
+        if (boundaryOverlayBadge) boundaryOverlayBadge.classList.add('hidden');
+        if (metricCoverageDimensions) metricCoverageDimensions.textContent = '-- km × -- km';
+        if (metricCoverageArea) metricCoverageArea.textContent = '-- km²';
+        if (metricCoverageCoords) metricCoverageCoords.textContent = 'Lat: [--, --] | Lon: [--, --]';
+      } else {
+        const w = Math.min(bounds.minLon, bounds.maxLon);
+        const s = Math.min(bounds.minLat, bounds.maxLat);
+        const e = Math.max(bounds.minLon, bounds.maxLon);
+        const n = Math.max(bounds.minLat, bounds.maxLat);
+
+        currentNetworkBoundsGeoJson = {
+          type: 'FeatureCollection',
+          features: [{
+            type: 'Feature',
+            properties: {
+              title: 'Límite de Red Vial',
+              file: activeGpkg
+            },
+            geometry: {
+              type: 'Polygon',
+              coordinates: [[
+                [w, s],
+                [e, s],
+                [e, n],
+                [w, n],
+                [w, s]
+              ]]
+            }
+          }]
+        };
+
+        currentNetworkCornersGeoJson = {
+          type: 'FeatureCollection',
+          features: [
+            { type: 'Feature', properties: { corner: 'NW', label: 'Noroeste' }, geometry: { type: 'Point', coordinates: [w, n] } },
+            { type: 'Feature', properties: { corner: 'NE', label: 'Noreste' }, geometry: { type: 'Point', coordinates: [e, n] } },
+            { type: 'Feature', properties: { corner: 'SE', label: 'Sureste' }, geometry: { type: 'Point', coordinates: [e, s] } },
+            { type: 'Feature', properties: { corner: 'SW', label: 'Suroeste' }, geometry: { type: 'Point', coordinates: [w, s] } }
+          ]
+        };
+
+        const deltaLatKm = (Math.abs(n - s) * 111.0).toFixed(1);
+        const avgLatRad = ((s + n) / 2) * Math.PI / 180;
+        const deltaLonKm = (Math.abs(e - w) * 111.0 * Math.cos(avgLatRad)).toFixed(1);
+        const approxArea = (deltaLatKm * deltaLonKm).toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+        if (boundaryDimensionsBadge) boundaryDimensionsBadge.textContent = `${deltaLonKm} × ${deltaLatKm} km`;
+        if (boundaryOverlayText) boundaryOverlayText.textContent = `Límite de red (${deltaLonKm} × ${deltaLatKm} km)`;
+        if (boundaryOverlayBadge && showNetworkBoundary) boundaryOverlayBadge.classList.remove('hidden');
+
+        if (metricCoverageDimensions) metricCoverageDimensions.textContent = `${deltaLonKm} km × ${deltaLatKm} km`;
+        if (metricCoverageArea) metricCoverageArea.textContent = `~${approxArea} km²`;
+        if (metricCoverageCoords) metricCoverageCoords.textContent = `Lat: [${s.toFixed(3)}°, ${n.toFixed(3)}°] | Lon: [${w.toFixed(3)}°, ${e.toFixed(3)}°]`;
+      }
+
+      const srcBounds = map.getSource('network-boundary-source');
+      if (srcBounds) srcBounds.setData(currentNetworkBoundsGeoJson);
+
+      const srcCorners = map.getSource('network-boundary-corners-source');
+      if (srcCorners) srcCorners.setData(currentNetworkCornersGeoJson);
+    }
+
+    function setNetworkBoundaryVisibility(visible) {
+      showNetworkBoundary = visible;
+      const val = visible ? 'visible' : 'none';
+      ['network-boundary-fill', 'network-boundary-glow', 'network-boundary-line', 'network-boundary-corners'].forEach(layerId => {
+        if (map.getLayer(layerId)) {
+          map.setLayoutProperty(layerId, 'visibility', val);
+        }
+      });
+
+      if (chkShowNetworkBoundary) chkShowNetworkBoundary.checked = visible;
+      if (btnToggleNetworkBoundary) {
+        if (visible) {
+          btnToggleNetworkBoundary.classList.add('text-cyan-400', 'border-cyan-800/60');
+          btnToggleNetworkBoundary.classList.remove('text-slate-500', 'border-slate-800');
+        } else {
+          btnToggleNetworkBoundary.classList.remove('text-cyan-400', 'border-cyan-800/60');
+          btnToggleNetworkBoundary.classList.add('text-slate-500', 'border-slate-800');
+        }
+      }
+      if (boundaryOverlayBadge) {
+        if (visible && currentMetadata && currentMetadata.bounds) {
+          boundaryOverlayBadge.classList.remove('hidden');
+        } else {
+          boundaryOverlayBadge.classList.add('hidden');
+        }
+      }
+    }
+
+    function showBoundaryPopup(lngLat) {
+      if (!currentMetadata || !currentMetadata.bounds) return;
+      const b = currentMetadata.bounds;
+      const w = Math.min(b.minLon, b.maxLon);
+      const s = Math.min(b.minLat, b.maxLat);
+      const e = Math.max(b.minLon, b.maxLon);
+      const n = Math.max(b.minLat, b.maxLat);
+
+      const deltaLatKm = (Math.abs(n - s) * 111.0).toFixed(1);
+      const avgLatRad = ((s + n) / 2) * Math.PI / 180;
+      const deltaLonKm = (Math.abs(e - w) * 111.0 * Math.cos(avgLatRad)).toFixed(1);
+      const approxArea = (deltaLatKm * deltaLonKm).toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+      const html = `
+        <div class="space-y-2 text-xs">
+          <div class="flex items-center gap-2 border-b border-cyan-800/60 pb-1.5">
+            <span class="text-base">📍</span>
+            <div>
+              <span class="font-bold text-sm text-cyan-300 block">Límite de Red Vial</span>
+              <span class="text-[10px] text-slate-400 font-mono">${currentMetadata.fileName}</span>
+            </div>
+          </div>
+          <div class="space-y-1 text-slate-300">
+            <div class="flex justify-between"><span class="text-slate-400">Dimensión aprox:</span> <span class="font-medium text-white">${deltaLonKm} km × ${deltaLatKm} km</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">Área cubierta:</span> <span class="font-medium text-cyan-400">~${approxArea} km²</span></div>
+            <div class="pt-1 border-t border-slate-800 text-[10px] font-mono text-slate-400 space-y-0.5">
+              <div>Oeste (Min Lon): ${w.toFixed(4)}°</div>
+              <div>Sur (Min Lat): ${s.toFixed(4)}°</div>
+              <div>Este (Max Lon): ${e.toFixed(4)}°</div>
+              <div>Norte (Max Lat): ${n.toFixed(4)}°</div>
+            </div>
+          </div>
+          <div class="pt-1 border-t border-slate-800 text-[10px] text-slate-500 italic">
+            El ruteo de este GeoPackage se circunscribe a este perímetro.
+          </div>
+        </div>
+      `;
+
+      new maplibregl.Popup({ maxWidth: '300px' })
+        .setLngLat(lngLat)
+        .setHTML(html)
+        .addTo(map);
+    }
+
     btnFitBounds.addEventListener('click', () => {
       if (currentMetadata && currentMetadata.bounds) {
         fitToBounds(currentMetadata.bounds);
       }
     });
+
+    if (btnCenterOnBoundaryMetrics) {
+      btnCenterOnBoundaryMetrics.addEventListener('click', () => {
+        if (currentMetadata && currentMetadata.bounds) {
+          fitToBounds(currentMetadata.bounds);
+        }
+      });
+    }
+
+    if (btnToggleNetworkBoundary) {
+      btnToggleNetworkBoundary.addEventListener('click', () => {
+        setNetworkBoundaryVisibility(!showNetworkBoundary);
+      });
+    }
+
+    if (chkShowNetworkBoundary) {
+      chkShowNetworkBoundary.addEventListener('change', () => {
+        setNetworkBoundaryVisibility(chkShowNetworkBoundary.checked);
+      });
+    }
+
+    if (boundaryOverlayBadge) {
+      boundaryOverlayBadge.addEventListener('click', () => {
+        if (currentMetadata && currentMetadata.bounds) {
+          fitToBounds(currentMetadata.bounds);
+        }
+      });
+    }
 
     function renderHighwayBreakdown(meta) {
       const container = document.getElementById('highwayBreakdown');
@@ -1059,15 +1802,28 @@
         lblQuick.textContent = 'Satelital';
       }
 
-      // Cambiar estilo preservando atómicamente las fuentes y capas de carreteras y nodos
+      // Cambiar estilo preservando atómicamente las fuentes y capas de carreteras, nodos, área seleccionada y límites de red
       map.setStyle(BASEMAPS[styleKey], {
         transformStyle: (prev, next) => {
           const sources = { ...next.sources };
-          if (prev?.sources?.['segments']) sources['segments'] = prev.sources['segments'];
-          if (prev?.sources?.['nodes']) sources['nodes'] = prev.sources['nodes'];
+          const customSourceKeys = [
+            'segments',
+            'nodes',
+            'network-boundary-source',
+            'network-boundary-corners-source',
+            'bbox-draw-source'
+          ];
+          for (const key of customSourceKeys) {
+            if (prev?.sources?.[key]) {
+              sources[key] = prev.sources[key];
+            }
+          }
 
-          const customLayers = (prev?.layers || []).filter(l => 
-            l.id === 'segments-glow' || l.id === 'segments-line' || l.id === 'nodes-circle'
+          const customLayers = (prev?.layers || []).filter(l =>
+            l.id.startsWith('segments-') ||
+            l.id.startsWith('nodes-') ||
+            l.id.startsWith('network-boundary-') ||
+            l.id.startsWith('bbox-draw-')
           );
 
           return {
@@ -1086,7 +1842,19 @@
         setupMapLayers();
         if (map.getLayer('segments-glow')) {
           map.setPaintProperty('segments-glow', 'line-color', isSat ? '#000000' : '#ffffff');
-          map.setPaintProperty('segments-glow', 'line-opacity', isSat ? 0.6 : 0.15);
+          map.setPaintProperty('segments-glow', 'line-opacity', [
+            'case',
+            ['boolean', ['get', 'is_oneway'], false],
+            isSat ? 0.35 : 0.08, // suave para único sentido
+            isSat ? 0.70 : 0.20  // fuerte para doble sentido
+          ]);
+        }
+        if (map.getLayer('network-boundary-glow')) {
+          map.setPaintProperty('network-boundary-glow', 'line-color', isSat ? '#000000' : '#0891b2');
+          map.setPaintProperty('network-boundary-glow', 'line-opacity', isSat ? 0.6 : 0.35);
+        }
+        if (map.getLayer('network-boundary-fill')) {
+          map.setPaintProperty('network-boundary-fill', 'fill-opacity', isSat ? 0.08 : 0.04);
         }
         updateViewportData();
       };
@@ -1137,9 +1905,21 @@
       try {
         await fetch('/api/open-folder', { method: 'POST' });
       } catch (err) {
-        console.error('Error al abrir carpeta:', err);
+        console.error('Error al abrir carpeta de descargas:', err);
       }
     });
+
+    async function openOutputFolder() {
+      try {
+        await fetch('/api/open-folder?folder=output', { method: 'POST' });
+      } catch (err) {
+        console.error('Error al abrir carpeta output:', err);
+      }
+    }
+
+    document.getElementById('btnOpenOutputFolder')?.addEventListener('click', openOutputFolder);
+    document.getElementById('btnOpenOutputFolderNav')?.addEventListener('click', openOutputFolder);
+    document.getElementById('btnOpenOutputFileFolder')?.addEventListener('click', openOutputFolder);
 
     // Buscar regiones en Geofabrik
     async function searchGeofabrikRegions() {
@@ -1210,7 +1990,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ region: regionId, force: false })
         });
-        
+
         if (!res.ok) {
           const errData = await res.json();
           throw new Error(errData.error || 'Error al iniciar descarga');
@@ -1318,8 +2098,26 @@
       }, 1200);
     });
 
-    // Iniciar Build (Bloquea la UI)
-    btnStartBuild.addEventListener('click', async () => {
+    // =========================================================================
+    // MODAL DE PRE-CONFIRMACIÓN Y EJECUCIÓN DE BUILD
+    // =========================================================================
+
+    const confirmBuildModal = document.getElementById('confirmBuildModal');
+    const confirmPbfPath = document.getElementById('confirmPbfPath');
+    const confirmProfile = document.getElementById('confirmProfile');
+    const confirmOutName = document.getElementById('confirmOutName');
+    const confirmBboxBadge = document.getElementById('confirmBboxBadge');
+    const confirmBboxDetails = document.getElementById('confirmBboxDetails');
+    const confirmBufferDetails = document.getElementById('confirmBufferDetails');
+    const confirmNoBboxWarning = document.getElementById('confirmNoBboxWarning');
+    const btnCancelConfirmBuild = document.getElementById('btnCancelConfirmBuild');
+    const btnCancelConfirmBuildX = document.getElementById('btnCancelConfirmBuildX');
+    const btnExecuteBuildConfirmed = document.getElementById('btnExecuteBuildConfirmed');
+
+    let pendingBuildPayload = null;
+
+    // Abrir modal de pre-confirmación antes de ejecutar build
+    btnStartBuild.addEventListener('click', () => {
       const pbf = buildPbfInput.value.trim();
       if (!pbf) {
         alert('Por favor selecciona o ingresa un archivo .pbf');
@@ -1328,26 +2126,87 @@
       }
 
       let bbox = null;
-      if (bboxMinLon.value && bboxMinLat.value && bboxMaxLon.value && bboxMaxLat.value) {
+      const minLon = parseFloat(bboxMinLon.value);
+      const minLat = parseFloat(bboxMinLat.value);
+      const maxLon = parseFloat(bboxMaxLon.value);
+      const maxLat = parseFloat(bboxMaxLat.value);
+
+      if (!isNaN(minLon) && !isNaN(minLat) && !isNaN(maxLon) && !isNaN(maxLat)) {
         bbox = {
-          minLon: parseFloat(bboxMinLon.value),
-          minLat: parseFloat(bboxMinLat.value),
-          maxLon: parseFloat(bboxMaxLon.value),
-          maxLat: parseFloat(bboxMaxLat.value)
+          minLon,
+          minLat,
+          maxLon,
+          maxLat
         };
       }
 
-      const payload = {
+      const bufferMeters = buildBufferMeters.value ? parseFloat(buildBufferMeters.value) : null;
+      const profileName = buildProfileSelect.value || null;
+      const outName = buildOutName.value.trim() || null;
+
+      pendingBuildPayload = {
         pbf,
-        profile: buildProfileSelect.value || null,
-        outName: buildOutName.value.trim() || null,
+        profile: profileName,
+        outName,
         bbox,
-        bufferMeters: buildBufferMeters.value ? parseFloat(buildBufferMeters.value) : null
+        bufferMeters
       };
+
+      // Rellenar datos en el modal
+      confirmPbfPath.textContent = pbf;
+      confirmProfile.textContent = profileName ? profileName : '(Genérico sin perfil)';
+      confirmOutName.textContent = outName ? (outName.endsWith('.gpkg') ? outName : outName + '.gpkg') : '(Automático según región y fecha)';
+
+      if (bbox) {
+        const deltaLatKm = (Math.abs(bbox.maxLat - bbox.minLat) * 111.0).toFixed(1);
+        const avgLatRad = ((bbox.minLat + bbox.maxLat) / 2) * Math.PI / 180;
+        const deltaLonKm = (Math.abs(bbox.maxLon - bbox.minLon) * 111.0 * Math.cos(avgLatRad)).toFixed(1);
+
+        confirmBboxBadge.className = 'text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800/60';
+        confirmBboxBadge.textContent = '📐 Bounding Box delimitado';
+        confirmBboxDetails.innerHTML = `Límites: Lon [${bbox.minLon.toFixed(4)}, ${bbox.maxLon.toFixed(4)}] · Lat [${bbox.minLat.toFixed(4)}, ${bbox.maxLat.toFixed(4)}] <span class="text-emerald-400 font-semibold">(~${deltaLonKm} × ${deltaLatKm} km)</span>`;
+        confirmBufferDetails.textContent = bufferMeters ? `Buffer perimetral de conectividad: +${bufferMeters.toLocaleString()} metros` : 'Buffer perimetral de conectividad: 20,000 metros (por defecto)';
+        confirmNoBboxWarning.classList.add('hidden');
+      } else {
+        confirmBboxBadge.className = 'text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-950 text-amber-400 border border-amber-800/60';
+        confirmBboxBadge.textContent = '🌍 Sin BBox (Archivo Completo)';
+        confirmBboxDetails.textContent = 'Extracción completa sin límites geográficos';
+        confirmBufferDetails.textContent = bufferMeters ? `Buffer adicional: ${bufferMeters} m` : '';
+        confirmNoBboxWarning.classList.remove('hidden');
+      }
+
+      confirmBuildModal.classList.remove('hidden');
+    });
+
+    function closeConfirmBuildModal() {
+      if (confirmBuildModal) confirmBuildModal.classList.add('hidden');
+      pendingBuildPayload = null;
+    }
+
+    if (btnCancelConfirmBuild) btnCancelConfirmBuild.addEventListener('click', closeConfirmBuildModal);
+    if (btnCancelConfirmBuildX) btnCancelConfirmBuildX.addEventListener('click', closeConfirmBuildModal);
+
+    if (confirmBuildModal) {
+      confirmBuildModal.addEventListener('click', (e) => {
+        if (e.target === confirmBuildModal) closeConfirmBuildModal();
+      });
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && confirmBuildModal && !confirmBuildModal.classList.contains('hidden')) {
+        closeConfirmBuildModal();
+      }
+    });
+
+    // Al confirmar, iniciar el proceso de build
+    btnExecuteBuildConfirmed.addEventListener('click', async () => {
+      if (!pendingBuildPayload) return;
+      const payload = { ...pendingBuildPayload };
+      closeConfirmBuildModal();
 
       showBusyOverlay({
         type: 'build',
-        title: `Construyendo red vial desde '${pbf}'`,
+        title: `Construyendo red vial desde '${payload.pbf}'`,
         currentStep: 'Iniciando escaneo de vías y nodos...'
       });
 
@@ -1357,7 +2216,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        
+
         if (!res.ok) {
           const errData = await res.json();
           throw new Error(errData.error || 'Error al iniciar build');
@@ -1389,7 +2248,7 @@
       busyIcon.textContent = '✅';
       busyTitle.textContent = '¡Operación finalizada con éxito!';
       busySubtitle.textContent = job.currentStep || 'Completado.';
-      
+
       setTimeout(async () => {
         busyOverlay.classList.add('hidden');
         if (job.type === 'download') {
@@ -1424,7 +2283,7 @@
           // 1. Chequear estado de la tarea en curso
           const statusRes = await fetch('/api/job/status');
           const statusData = await statusRes.json();
-          
+
           if (statusData.active && statusData.job) {
             wasActive = true;
             showBusyOverlay(statusData.job);
@@ -1457,7 +2316,7 @@
               busyConsole.scrollTop = busyConsole.scrollHeight;
             }
           }
-        } catch {}
+        } catch { }
       }, 1000);
     }
 
@@ -1468,4 +2327,5 @@
 
   </script>
 </body>
+
 </html>

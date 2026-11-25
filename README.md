@@ -25,7 +25,35 @@ Geofabrik ──download──▶ region-AAMMDD.osm.pbf ──build──▶ red
 - .NET 9 (runtime) para ejecutar; SDK 9+ para compilar. Memoria: ~4 GB para un país como Argentina.
 
 ```powershell
-dotnet publish src/OsmImporter.Cli -c Release -o dist      # deja dist\osmimport.exe + dist\profiles\
+# Compilar y generar la distribución en dist/
+dotnet publish src/OsmImporter.Cli -c Release -o dist
+```
+
+## 🚀 Cómo ejecutar el proyecto
+
+### 1. Visor Web y Estudio Gráfico (Modo Visual — Recomendado)
+Inicia el servidor web local con Kestrel y abre la interfaz gráfica interactiva en tu navegador en `http://localhost:5000`:
+
+```powershell
+# Usando el ejecutable compilado en dist:
+.\dist\osmimport.exe serve
+
+# O directamente con dotnet desde el código fuente:
+dotnet run --project src/OsmImporter.Cli -- serve
+```
+
+**Funcionalidades del Visor Web:**
+* 🗺️ **Mapa interactivo con aceleración GPU**: Visualización con MapLibre GL en tema oscuro, claro o **satelital de alta resolución** (Esri World Imagery y Google Hybrid).
+* 🌍 **Búsqueda y descarga de Geofabrik**: Busca países y regiones por nombre y descárgalos directamente al proyecto.
+* 📐 **Selector de área interactivo**: Botón **`✏️ Dibujar área`** para trazar un recuadro directamente con el ratón sobre el mapa y extraer únicamente la zona deseada.
+* 🚀 **Construcción en vivo (Build)**: Genera los GeoPackages (`.gpkg`) con bloqueo seguro de la interfaz y consola de logs en vivo.
+* 📊 **Inspección de carreteras**: Clic sobre cualquier calle para consultar su nombre, velocidad máxima, costo de viaje, sentido y nodo OSM.
+* 📂 **Acceso rápido a carpetas**: Botones para abrir `output\` y `downloads\` directamente en el Explorador de Windows.
+
+### 2. Ejecución por Consola (CLI / Automatización)
+Para pipelines desatendidos o scripts de CI/CD:
+
+```powershell
 $exe = ".\dist\osmimport.exe"
 & $exe help
 ```
