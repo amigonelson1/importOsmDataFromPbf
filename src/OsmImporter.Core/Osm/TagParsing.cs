@@ -88,12 +88,12 @@ public static partial class TagParsing
     return 0;
   }
 
-  private static readonly Regex _feetInchesRegex = new(@"^\s*(?<feet>\d+)\s*'\s*(?<inches>\d+(\.\d+)?)?\s*""?\s*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-  private static Regex FeetInchesRegex() => _feetInchesRegex;
+  [GeneratedRegex(@"^\s*(?<feet>\d+)\s*'\s*(?<inches>\d+(\.\d+)?)?\s*""?\s*$", RegexOptions.IgnoreCase)]
+  private static partial Regex FeetInchesRegex();
 
-  private static readonly Regex _numberWithUnitRegex = new(@"^\s*(?<n>\d+(\.\d+)?)\s*(?<u>[a-zA-Z]+)?\s*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-  private static Regex NumberWithUnitRegex() => _numberWithUnitRegex;
+  [GeneratedRegex(@"^\s*(?<n>\d+(\.\d+)?)\s*(?<u>[a-zA-Z]+)?\s*$", RegexOptions.IgnoreCase)]
+  private static partial Regex NumberWithUnitRegex();
 
-  private static readonly Regex _maxSpeedRegex = new(@"^\s*(?<n>\d+(\.\d+)?)\s*(?<u>mph|km/h|kmh|kph)?\s*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-  private static Regex MaxSpeedRegex() => _maxSpeedRegex;
+  [GeneratedRegex(@"^\s*(?<n>\d+(\.\d+)?)\s*(?<u>mph|km/h|kmh|kph)?\s*$", RegexOptions.IgnoreCase)]
+  private static partial Regex MaxSpeedRegex();
 }

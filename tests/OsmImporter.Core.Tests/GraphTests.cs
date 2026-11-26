@@ -22,7 +22,7 @@ public class GraphTests
     var a = Way(1, "primary", null, (-68.001, -38.9), (-68.0, -38.9), (-67.999, -38.9));
     var b = Way(2, "residential", null, (-68.0, -38.9), (-68.0, -38.899));
 
-    var (graph, _) = GraphBuilder.Build(new[] { a, b }, new BuildOptions());
+    var (graph, _) = GraphBuilder.Build([a, b], new BuildOptions());
     var junction = graph.Nodes.Single(n => n.Key == GridKey.KeyFor(-68.0, -38.9, 0.00001));
 
     Assert.Equal(3, junction.Valence);
@@ -33,7 +33,7 @@ public class GraphTests
   public void Segments_are_at_most_50m_and_costs_use_factors()
   {
     var w = Way(10, "motorway", "yes", (-68.0, -38.9), (-68.0, -38.903)); // ~333 m
-    var (graph, _) = GraphBuilder.Build(new[] { w }, new BuildOptions());
+    var (graph, _) = GraphBuilder.Build([w], new BuildOptions());
 
     Assert.Equal(8, graph.Segments.Count); // bisect: 333 m → 2^3 partes
     Assert.All(graph.Segments, s =>
@@ -51,14 +51,14 @@ public class GraphTests
   public void Oneway_minus_one_is_reversed()
   {
     var w = Way(5, "secondary", "-1", (-68.0, -38.9), (-68.0, -38.9003));
-    var (graph, stats) = GraphBuilder.Build(new[] { w }, new BuildOptions());
+    var (graph, stats) = GraphBuilder.Build([w], new BuildOptions());
 
     var s = Assert.Single(graph.Segments);
     Assert.True(s.Way.IsOneWay);
     Assert.Equal(-38.9003, s.Y1, 1e-9);
     Assert.Equal(1, stats.WaysReversed);
 
-    var (legacy, _) = GraphBuilder.Build(new[] { w }, new BuildOptions { ReverseOnewayMinusOne = false });
+    var (legacy, _) = GraphBuilder.Build([w], new BuildOptions { ReverseOnewayMinusOne = false });
     Assert.False(legacy.Segments[0].Way.IsOneWay);
     Assert.Equal(-38.9, legacy.Segments[0].Y1, 1e-9);
   }
@@ -68,7 +68,7 @@ public class GraphTests
   {
     // 0,5 m: se descarta por corto. Ningún nodo debe quedar huérfano.
     var w = Way(7, "track", null, (-68.0, -38.9), (-68.0, -38.9000045), (-68.0, -38.9005));
-    var (graph, stats) = GraphBuilder.Build(new[] { w }, new BuildOptions());
+    var (graph, stats) = GraphBuilder.Build([w], new BuildOptions());
 
     Assert.Equal(1, stats.DroppedShort);
     Assert.All(graph.Nodes, n => Assert.True(n.Valence > 0));
@@ -79,8 +79,8 @@ public class GraphTests
   public void Segment_keys_are_unique_and_deterministic()
   {
     var w = Way(9, "service", null, (-68.0, -38.9), (-68.0, -38.9004), (-68.0, -38.9)); // ida y vuelta
-    var (g1, s1) = GraphBuilder.Build(new[] { w }, new BuildOptions());
-    var (g2, _) = GraphBuilder.Build(new[] { w }, new BuildOptions());
+    var (g1, s1) = GraphBuilder.Build([w], new BuildOptions());
+    var (g2, _) = GraphBuilder.Build([w], new BuildOptions());
 
     Assert.Equal(g1.Segments.Select(s => s.Key), g2.Segments.Select(s => s.Key));
     Assert.Equal(g1.Segments.Count, g1.Segments.Select(s => s.Key).Distinct().Count());
@@ -99,7 +99,7 @@ public class GraphTests
   public void GeoPackage_roundtrip()
   {
     var w = Way(11, "primary", null, (-68.0, -38.9), (-68.0, -38.9003));
-    var (graph, _) = GraphBuilder.Build(new[] { w }, new BuildOptions());
+    var (graph, _) = GraphBuilder.Build([w], new BuildOptions());
     var path = Path.Combine(Path.GetTempPath(), $"osmimport-test-{Guid.NewGuid():N}.gpkg");
 
     try
@@ -137,7 +137,7 @@ public class GraphTests
   public void GeoPackage_cleans_up_tmp_file_on_cancellation()
   {
     var w = Way(12, "primary", null, (-68.0, -38.9), (-68.0, -38.9003));
-    var (graph, _) = GraphBuilder.Build(new[] { w }, new BuildOptions());
+    var (graph, _) = GraphBuilder.Build([w], new BuildOptions());
     var path = Path.Combine(Path.GetTempPath(), $"osmimport-test-cancel-{Guid.NewGuid():N}.gpkg");
     var temp = path + ".tmp";
 
@@ -170,18 +170,18 @@ public class GraphTests
       var n2 = nodeIdCounter++;
       var n3 = nodeIdCounter++;
 
-      nodeIds.AddRange(new[] { n1, n2, n3 });
+      nodeIds.AddRange([n1, n2, n3]);
       var baseLon = -68.5 + (w % 50) * 0.01;
       var baseLat = -38.5 + (w % 50) * 0.01;
 
-      lonE7.AddRange(new[] { (int)(baseLon * 1e7), (int)((baseLon + 0.005) * 1e7), (int)((baseLon + 0.01) * 1e7) });
-      latE7.AddRange(new[] { (int)(baseLat * 1e7), (int)((baseLat + 0.005) * 1e7), (int)((baseLat + 0.01) * 1e7) });
+      lonE7.AddRange([(int)(baseLon * 1e7), (int)((baseLon + 0.005) * 1e7), (int)((baseLon + 0.01) * 1e7)]);
+      latE7.AddRange([(int)(baseLat * 1e7), (int)((baseLat + 0.005) * 1e7), (int)((baseLat + 0.01) * 1e7)]);
 
       ways.Add(new WayRecord
       {
         Id = (w * 17) % 300 + 1, // IDs desordenados a propósito
         Highway = (w % 2 == 0) ? "primary" : "secondary",
-        Refs = new[] { n1, n2, n3 },
+        Refs = [n1, n2, n3],
       });
     }
 
@@ -238,9 +238,9 @@ public class GraphTests
         MaxWeight = 15.5,
         MaxHeight = 4.2,
         MaxWidth = 2.8,
-        Refs = new long[] { 1, 2 },
+        Refs = [1, 2],
       },
-      Coords = new[] { (-68.0, -38.9), (-68.0003, -38.9) },
+      Coords = [(-68.0, -38.9), (-68.0003, -38.9)],
     };
 
     var w2 = new SelectedWay
@@ -249,9 +249,9 @@ public class GraphTests
       {
         Id = 43,
         Highway = "residential",
-        Refs = new long[] { 2, 3 },
+        Refs = [2, 3],
       },
-      Coords = new[] { (-68.0003, -38.9), (-68.0003, -38.899) },
+      Coords = [(-68.0003, -38.9), (-68.0003, -38.899)],
     };
 
     var restrictions = new List<RestrictionRecord>
@@ -259,7 +259,7 @@ public class GraphTests
       new() { Id = 1001, FromWayId = 42, ViaNodeId = 2, ToWayId = 43, Restriction = "no_left_turn" }
     };
 
-    var (graph, _) = GraphBuilder.Build(new[] { w1, w2 }, new BuildOptions(), restrictions);
+    var (graph, _) = GraphBuilder.Build([w1, w2], new BuildOptions(), restrictions);
     Assert.Single(graph.Restrictions);
     Assert.Equal(1001, graph.Restrictions[0].RelationId);
     Assert.Equal(42, graph.Restrictions[0].FromOsmId);

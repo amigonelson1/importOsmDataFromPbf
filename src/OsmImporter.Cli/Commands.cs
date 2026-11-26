@@ -8,7 +8,7 @@ public static class Commands
 {
   public static int Help()
   {
-    Console.WriteLine($@"
+    Console.WriteLine($"""
       osmimport {BuildPipeline.ToolVersion} — pbf de OpenStreetMap → red vial ruteable
 
       USO
@@ -42,7 +42,7 @@ public static class Commands
         --overwrite                  Sobrescribir la salida si existe
         --verbose                    Progreso detallado
 
-      PUBLISH: escribe el GeoPackage en la base destino (según la sección ""publish"" del perfil).
+      PUBLISH: escribe el GeoPackage en la base destino (según la sección "publish" del perfil).
         osmimport publish --gpkg <archivo.gpkg> --mode create|replace|sync [opciones]
         --mode create                Crea las tablas (no deben existir) y carga
         --mode replace               Respalda, vacía y recarga. Se NIEGA si hay filas que dependen de la red
@@ -78,7 +78,7 @@ public static class Commands
         osmimport build --pbf argentina-260528.osm.pbf --profile sherpaslb
         osmimport build --pbf argentina.osm.pbf --bbox -69.4,-39,-67.7,-33 --coverage-only
         osmimport build --pbf chile.osm.pbf --bbox -71.5,-34,-70,-32.5 --highways primary,secondary,tertiary
-      ");
+      """);
     return 0;
   }
 

@@ -14,7 +14,7 @@ public sealed class WayRecord
   public string? Lanes { get; init; }
   public string? MaxSpeed { get; init; }
   public bool AreaYes { get; init; }
-  public long[] Refs { get; init; } = Array.Empty<long>();
+  public long[] Refs { get; init; } = [];
 
   public string? Surface { get; init; }
   public string? Smoothness { get; init; }
@@ -38,15 +38,15 @@ public sealed class RestrictionRecord
 
 public sealed class PbfReadResult
 {
-  public List<WayRecord> Ways { get; init; } = default!;
-  public List<RestrictionRecord> Restrictions { get; init; } = new();
+  public required List<WayRecord> Ways { get; init; }
+  public List<RestrictionRecord> Restrictions { get; init; } = [];
 
   /// <summary>Ids de nodos requeridos, ordenados y únicos.</summary>
-  public long[] NodeIds { get; init; } = default!;
+  public required long[] NodeIds { get; init; }
 
   /// <summary>Coordenadas en 1e-7 grados (resolución nativa del pbf). int.MinValue = nodo ausente.</summary>
-  public int[] LonE7 { get; init; } = default!;
-  public int[] LatE7 { get; init; } = default!;
+  public required int[] LonE7 { get; init; }
+  public required int[] LatE7 { get; init; }
 
   public long TotalWaysScanned { get; init; }
   public long TotalNodesScanned { get; init; }

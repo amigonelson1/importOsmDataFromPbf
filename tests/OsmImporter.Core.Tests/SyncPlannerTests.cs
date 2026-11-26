@@ -9,7 +9,7 @@ namespace OsmImporter.Core.Tests;
 
 public class SyncPlannerTests : IDisposable
 {
-  private readonly List<string> _files = new();
+  private readonly List<string> _files = [];
   private static readonly MappedColumns All = new(true, true, true, true, true, true, true);
 
   private static SelectedWay Way(long id, string? lanes, params (double, double)[] coords) => new()
@@ -44,8 +44,8 @@ public class SyncPlannerTests : IDisposable
     return (diff, SyncPlanner.Plan(diff, existing, All));
   }
 
-  private static readonly (double, double)[] A = new[] { (-68.0, -38.9), (-68.0, -38.9004) };
-  private static readonly (double, double)[] B = new[] { (-68.0, -38.9004), (-68.0004, -38.9004) };
+  private static readonly (double, double)[] A = [(-68.0, -38.9), (-68.0, -38.9004)];
+  private static readonly (double, double)[] B = [(-68.0, -38.9004), (-68.0004, -38.9004)];
 
   [Fact]
   public void Identical_network_produces_no_writes()
@@ -115,7 +115,7 @@ public class SyncPlannerTests : IDisposable
     var (_, plan) = PlanFor(after, existing);
     var retiredSeg = plan.RetiredSegmentIds.First();
 
-    SyncPlanner.ApplyRetention(plan, existing, Array.Empty<long>(), new[] { retiredSeg }, valenceMapped: true);
+    SyncPlanner.ApplyRetention(plan, existing, [], [retiredSeg], valenceMapped: true);
 
     Assert.DoesNotContain(retiredSeg, plan.RetiredSegmentIds);
     Assert.Equal(1, plan.RetainedSegments);

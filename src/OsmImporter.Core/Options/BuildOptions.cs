@@ -56,11 +56,11 @@ public sealed class BuildOptions
   /// <summary>true = aplicar el buffer en EPSG:3857 como el SQL original (a −38° de latitud 20 km "3857" ≈ 15,6 km reales).</summary>
   public bool LegacyBuffer { get; set; }
 
-  public List<string> Highways { get; set; } = new()
-  {
+  public List<string> Highways { get; set; } =
+  [
     "motorway", "trunk", "primary", "secondary", "tertiary",
     "residential", "unclassified", "service", "track",
-  };
+  ];
 
   /// <summary>
   /// Parte vías largas cada N unidades EPSG:3857 (como osm2pgsql, default 100000) y solo conserva los tramos
@@ -124,6 +124,6 @@ public sealed class BuildOptions
       throw new ArgumentException("Parámetros inválidos:\n  - " + string.Join("\n  - ", errors));
 
     Highways = Highways!.Select(h => h.Trim().ToLowerInvariant()).Where(h => h.Length > 0).Distinct().ToList();
-    CostFactors = new Dictionary<string, double>(CostFactors ?? new Dictionary<string, double>(), StringComparer.OrdinalIgnoreCase);
+    CostFactors = new Dictionary<string, double>(CostFactors ?? [], StringComparer.OrdinalIgnoreCase);
   }
 }

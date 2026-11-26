@@ -37,7 +37,7 @@ public sealed class RoadNode
 public sealed class RoadSegment
 {
   public long Fid { get; set; }
-  public RoadWayInfo Way { get; init; } = default!;
+  public required RoadWayInfo Way { get; init; }
 
   /// <summary>Llave natural estable: "OsmId:FromKey:ToKey" (+ "#n" si se repite).</summary>
   public string Key => Ordinal <= 1 ? $"{Way.OsmId}:{FromKey}:{ToKey}" : $"{Way.OsmId}:{FromKey}:{ToKey}#{Ordinal}";
@@ -51,8 +51,8 @@ public sealed class RoadSegment
 
   public long FromKey { get; init; }
   public long ToKey { get; init; }
-  public RoadNode FromNode { get; init; } = default!;
-  public RoadNode ToNode { get; init; } = default!;
+  public required RoadNode FromNode { get; init; }
+  public required RoadNode ToNode { get; init; }
 
   public double LengthMeters { get; init; }
   public double TravelCost { get; init; }
@@ -70,7 +70,7 @@ public sealed class TurnRestriction
 
 public sealed class RoadGraph
 {
-  public List<RoadNode> Nodes { get; } = new();
-  public List<RoadSegment> Segments { get; } = new();
-  public List<TurnRestriction> Restrictions { get; } = new();
+  public List<RoadNode> Nodes { get; } = [];
+  public List<RoadSegment> Segments { get; } = [];
+  public List<TurnRestriction> Restrictions { get; } = [];
 }

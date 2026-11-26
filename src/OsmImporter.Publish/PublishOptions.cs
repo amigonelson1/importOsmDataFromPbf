@@ -62,7 +62,7 @@ public sealed class PublishOptions
   /// las lógicas (sin FK), ej. una columna de texto que guarda el Id de un segmento. Cada una trae su
   /// estrategia para elementos retirados (sync); replace se niega si alguna tiene filas.
   /// </summary>
-  public List<DependencyRule> Dependencies { get; set; } = new();
+  public List<DependencyRule> Dependencies { get; set; } = [];
 
   /// <summary>Estrategia para las FKs reales detectadas automáticamente (las declaradas traen la suya).</summary>
   public DependencyStrategy ForeignKeyDefaults { get; set; } = new();
@@ -99,7 +99,7 @@ public sealed class PublishOptions
     if (MaxRetiredPercent is < 0 or > 100) errors.Add("publish.maxRetiredPercent debe estar entre 0 y 100");
     CheckStrategy(ForeignKeyDefaults ??= new(), "publish.foreignKeyDefaults");
 
-    foreach (var d in Dependencies ?? new List<DependencyRule>())
+    foreach (var d in Dependencies ?? [])
     {
       CheckStrategy(d, $"publish.dependencies ({d.Table}.{d.Column})");
       if (string.IsNullOrWhiteSpace(d.Table) || string.IsNullOrWhiteSpace(d.Column))

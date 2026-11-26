@@ -23,13 +23,13 @@ public sealed record SegmentRow(long Id, GpkgSegment Src, long FromId, long ToId
 /// <summary>Plan completo de un sync calculado en memoria: el motor solo ejecuta INSERT/UPDATE/DELETE.</summary>
 public sealed class SyncPlan
 {
-  public List<NodeRow> NodeInserts { get; } = new();
-  public List<NodeRow> NodeUpdates { get; } = new();
-  public List<SegmentRow> SegmentInserts { get; } = new();
-  public List<SegmentRow> SegmentUpdates { get; } = new();
-  public Dictionary<string, long> ColumnChanges { get; } = new();
-  public HashSet<long> RetiredNodeIds { get; init; } = new();
-  public HashSet<long> RetiredSegmentIds { get; init; } = new();
+  public List<NodeRow> NodeInserts { get; } = [];
+  public List<NodeRow> NodeUpdates { get; } = [];
+  public List<SegmentRow> SegmentInserts { get; } = [];
+  public List<SegmentRow> SegmentUpdates { get; } = [];
+  public Dictionary<string, long> ColumnChanges { get; } = [];
+  public HashSet<long> RetiredNodeIds { get; init; } = [];
+  public HashSet<long> RetiredSegmentIds { get; init; } = [];
   public long RetainedNodes { get; set; }
   public long RetainedSegments { get; set; }
 }
@@ -48,8 +48,8 @@ public static class SyncPlanner
   {
     var plan = new SyncPlan
     {
-      RetiredNodeIds = new HashSet<long>(diff.RetiredNodeIds),
-      RetiredSegmentIds = new HashSet<long>(diff.RetiredSegmentIds),
+      RetiredNodeIds = [.. diff.RetiredNodeIds],
+      RetiredSegmentIds = [.. diff.RetiredSegmentIds],
     };
 
     var nodesById = existing.Nodes.ToDictionary(n => n.Id);
@@ -74,7 +74,7 @@ public static class SyncPlanner
     if (m.Valence) plan.ColumnChanges["nodos.valence"] = cVal;
 
     var counters = new long[11];
-    string[] names = new[] { "osm_id", "highway", "geometry", "from_node", "to_node", "name", "is_oneway", "lanes", "max_speed", "length", "travel_cost" };
+    string[] names = ["osm_id", "highway", "geometry", "from_node", "to_node", "name", "is_oneway", "lanes", "max_speed", "length", "travel_cost"];
 
     for (var i = 0; i < diff.Segments.Count; i++)
     {
@@ -83,8 +83,8 @@ public static class SyncPlanner
       if (diff.SegmentIsNew[i]) { plan.SegmentInserts.Add(row); continue; }
 
       var e = segsById[row.Id];
-      bool[] changed = new[]
-      {
+      bool[] changed =
+      [
         e.OsmId != s.OsmId,
         !string.Equals(e.Highway, s.Highway, StringComparison.Ordinal),
         Geodesy.SphereDistance(e.X1, e.Y1, s.X1, s.Y1) > GeometryToleranceMeters || Geodesy.SphereDistance(e.X2, e.Y2, s.X2, s.Y2) > GeometryToleranceMeters,
@@ -96,7 +96,7 @@ public static class SyncPlanner
         m.MaxSpeed && e.MaxSpeed != s.MaxSpeed,
         m.Length && Math.Abs(e.LengthMeters - s.LengthMeters) > NumberTolerance,
         m.Cost && Math.Abs(e.TravelCost - s.TravelCost) > NumberTolerance,
-      };
+      ];
 
       var any = false;
       for (var k = 0; k < changed.Length; k++)
@@ -169,24 +169,24 @@ public static class SyncPlanner
 /// <summary>Entrada de una dependencia para el planificador: filas que referencian cada Id.</summary>
 public sealed class DependencyInput
 {
-  public string Source { get; init; } = default!;      // "fk" | "declarada"
-  public string Table { get; init; } = default!;
-  public string Column { get; init; } = default!;
-  public string References { get; init; } = default!;  // "nodes" | "segments"
-  public DependencyStrategy Strategy { get; init; } = default!;
-  public bool IsNullable { get; init; }
+  public required string Source { get; init; }      // "fk" | "declarada"
+  public required string Table { get; init; }
+  public required string Column { get; init; }
+  public required string References { get; init; }  // "nodes" | "segments"
+  public required DependencyStrategy Strategy { get; init; }
+  public required bool IsNullable { get; init; }
 
   /// <summary>Id referenciado → cantidad de filas que lo referencian (solo valores numéricos).</summary>
-  public Dictionary<long, long> RowsByReferencedId { get; init; } = default!;
+  public required Dictionary<long, long> RowsByReferencedId { get; init; }
 }
 
 public sealed class DependencyDecision
 {
-  public DependencyOutcome Outcome { get; init; } = default!;
+  public required DependencyOutcome Outcome { get; init; }
 
   /// <summary>Id retirado → Id nuevo (o null = poner NULL). Lo que no está en el mapa no se toca.</summary>
-  public Dictionary<long, long?> Map { get; } = new();
-  public HashSet<long> Retain { get; } = new();
+  public Dictionary<long, long?> Map { get; } = [];
+  public HashSet<long> Retain { get; } = [];
 }
 
 /// <summary>Elige reemplazos para referencias a elementos retirados (más cercano en la red final), en memoria.</summary>

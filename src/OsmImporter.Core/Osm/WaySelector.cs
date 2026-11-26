@@ -6,8 +6,8 @@ namespace OsmImporter.Core.Osm;
 
 public sealed class SelectedWay
 {
-  public WayRecord Way { get; init; } = default!;
-  public (double Lon, double Lat)[] Coords { get; init; } = default!;
+  public required WayRecord Way { get; init; }
+  public required (double Lon, double Lat)[] Coords { get; init; }
   public int PieceOrdinal { get; init; }
 }
 
@@ -21,10 +21,10 @@ public sealed class HighwayCoverage
 
 public sealed class SelectionResult
 {
-  public List<SelectedWay> Ways { get; init; } = default!;
+  public required List<SelectedWay> Ways { get; init; }
 
   /// <summary>Cobertura de TODOS los valores de highway dentro del área (paso 8 de getDataOSM.txt).</summary>
-  public List<HighwayCoverage> Coverage { get; init; } = default!;
+  public required List<HighwayCoverage> Coverage { get; init; }
 
   public long WaysWithMissingNodes { get; init; }
   public long WaysWithoutGeometry { get; init; }

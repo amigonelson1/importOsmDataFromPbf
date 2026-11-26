@@ -14,9 +14,9 @@ namespace OsmImporter.Core;
 
 public sealed class BuildRequest
 {
-  public string PbfPath { get; init; } = default!;
-  public string OutputPath { get; init; } = default!;
-  public BuildOptions Options { get; init; } = default!;
+  public required string PbfPath { get; init; }
+  public required string OutputPath { get; init; }
+  public required BuildOptions Options { get; init; }
   public string? ProfileName { get; init; }
   public bool CoverageOnly { get; init; }
 }
@@ -43,10 +43,10 @@ public sealed class BuildReport
   public long WaysExcludedAsArea { get; set; }
   public long WaysSelected { get; set; }
 
-  public List<HighwayCoverage> Coverage { get; set; } = new();
+  public List<HighwayCoverage> Coverage { get; set; } = [];
   public GraphBuildStats? Graph { get; set; }
   public GraphQuality? Quality { get; set; }
-  public Dictionary<string, string> Timings { get; } = new();
+  public Dictionary<string, string> Timings { get; } = [];
 
   public static readonly JsonSerializerOptions Json = new()
   {

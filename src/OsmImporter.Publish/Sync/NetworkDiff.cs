@@ -13,18 +13,18 @@ namespace OsmImporter.Publish.Sync;
 /// </summary>
 public sealed class NetworkDiff
 {
-  public List<GpkgNode> Nodes { get; init; } = default!;
-  public List<GpkgSegment> Segments { get; init; } = default!;
+  public required List<GpkgNode> Nodes { get; init; }
+  public required List<GpkgSegment> Segments { get; init; }
 
   /// <summary>Id final de cada nodo del gpkg (mismo índice que Nodes). Existente si se emparejó, 0 si es nuevo hasta AssignNewIds.</summary>
-  public long[] NodeIds { get; init; } = Array.Empty<long>();
-  public bool[] NodeIsNew { get; init; } = Array.Empty<bool>();
+  public required long[] NodeIds { get; init; }
+  public required bool[] NodeIsNew { get; init; }
 
-  public long[] SegmentIds { get; init; } = Array.Empty<long>();
-  public bool[] SegmentIsNew { get; init; } = Array.Empty<bool>();
+  public required long[] SegmentIds { get; init; }
+  public required bool[] SegmentIsNew { get; init; }
 
-  public List<long> RetiredNodeIds { get; init; } = new();
-  public List<long> RetiredSegmentIds { get; init; } = new();
+  public required List<long> RetiredNodeIds { get; init; }
+  public required List<long> RetiredSegmentIds { get; init; }
 
   public long NodesKeptExact { get; init; }
   public long NodesKeptTolerant { get; init; }
@@ -113,7 +113,7 @@ public sealed class NetworkDiff
     foreach (var ((osm, from, to), q) in existingSegsByKey)
     {
       if (q.Count == 0) continue;
-      if (!remainingByOsm.TryGetValue(osm, out var list)) remainingByOsm[osm] = list = new();
+      if (!remainingByOsm.TryGetValue(osm, out var list)) remainingByOsm[osm] = list = [];
       foreach (var id in q) list.Add((from, to, id));
     }
 
