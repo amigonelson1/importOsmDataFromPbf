@@ -24,7 +24,7 @@ public sealed class ParityReport
 {
   public string Target { get; init; } = default!;
   public string Gpkg { get; init; } = default!;
-  public Dictionary<string, string> Diagnostics { get; init; } = [];
+  public Dictionary<string, string> Diagnostics { get; init; } = new();
   public string? GpkgSegmentizeMethod { get; init; }
 
   public long DbNodes { get; set; }
@@ -43,15 +43,15 @@ public sealed class ParityReport
   public long GpkgOsmWays { get; set; }
   public long OsmWaysOnlyInDb { get; set; }
   public long OsmWaysOnlyInGpkg { get; set; }
-  public List<long> SampleOsmWaysOnlyInDb { get; set; } = [];
-  public List<long> SampleOsmWaysOnlyInGpkg { get; set; } = [];
+  public List<long> SampleOsmWaysOnlyInDb { get; set; } = new();
+  public List<long> SampleOsmWaysOnlyInGpkg { get; set; } = new();
 
   public double DbKm { get; set; }
   public double GpkgKm { get; set; }
-  public List<HighwayParity> ByHighway { get; set; } = [];
+  public List<HighwayParity> ByHighway { get; set; } = new();
 
-  public List<SampleSegment> SampleOnlyInDb { get; set; } = [];
-  public List<SampleSegment> SampleOnlyInGpkg { get; set; } = [];
+  public List<SampleSegment> SampleOnlyInDb { get; set; } = new();
+  public List<SampleSegment> SampleOnlyInGpkg { get; set; } = new();
 }
 
 /// <summary>
@@ -131,7 +131,7 @@ public static class ParityComparer
     foreach (var ((osm, from, to), count) in gpkgKeys)
     {
       if (count <= 0) continue;
-      if (!gpkgByOsm.TryGetValue(osm, out var list)) gpkgByOsm[osm] = list = [];
+      if (!gpkgByOsm.TryGetValue(osm, out var list)) gpkgByOsm[osm] = list = new();
       for (var i = 0; i < count; i++) list.Add((from, to));
     }
 

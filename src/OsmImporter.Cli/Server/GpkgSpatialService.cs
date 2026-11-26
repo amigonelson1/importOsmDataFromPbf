@@ -46,7 +46,7 @@ public sealed class GpkgSpatialService
 
   public static List<GpkgFileSummary> ListFiles(string outputDir)
   {
-    if (!Directory.Exists(outputDir)) return [];
+    if (!Directory.Exists(outputDir)) return new();
 
     var files = Directory.GetFiles(outputDir, "*.gpkg", SearchOption.TopDirectoryOnly);
     var list = new List<GpkgFileSummary>();
@@ -206,21 +206,21 @@ public sealed class GpkgSpatialService
     string query;
     if (hasRtree)
     {
-      query = """
+      query = @"
         SELECT s.fid, s.name, s.highway, s.is_oneway, s.lanes, s.max_speed,
                s.length_m, s.travel_cost, s.osm_id, s.from_node_key, s.to_node_key, s.geom
         FROM road_segments s
         JOIN rtree_road_segments_geom r ON s.fid = r.id
         WHERE r.minx <= $maxLon AND r.maxx >= $minLon AND r.miny <= $maxLat AND r.maxy >= $minLat
-        """;
+        ";
     }
     else
     {
-      query = """
+      query = @"
         SELECT fid, name, highway, is_oneway, lanes, max_speed,
                length_m, travel_cost, osm_id, from_node_key, to_node_key, geom
         FROM road_segments
-        """;
+        ";
     }
 
     cmd.CommandText = query + $" LIMIT {limit * 3};";
@@ -257,7 +257,7 @@ public sealed class GpkgSpatialService
       var coordList = new List<double[]>();
       for (int i = 0; i < coords.Length; i += 2)
       {
-        coordList.Add([Math.Round(coords[i], 6), Math.Round(coords[i + 1], 6)]);
+        coordList.Add(new[] { Math.Round(coords[i], 6), Math.Round(coords[i + 1], 6) });
       }
 
       var fid = r.GetInt64(0);
@@ -365,21 +365,21 @@ public sealed class GpkgSpatialService
     string query;
     if (hasRtree)
     {
-      query = """
+      query = @"
         SELECT n.fid, n.node_key, n.valence, n.geom
         FROM road_nodes n
         JOIN rtree_road_nodes_geom r ON n.fid = r.id
         WHERE r.minx <= $maxLon AND r.maxx >= $minLon AND r.miny <= $maxLat AND r.maxy >= $minLat
         LIMIT $limit;
-        """;
+        ";
     }
     else
     {
-      query = """
+      query = @"
         SELECT fid, node_key, valence, geom
         FROM road_nodes
         LIMIT $limit;
-        """;
+        ";
     }
 
     cmd.CommandText = query;

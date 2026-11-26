@@ -2,7 +2,10 @@ using System.Globalization;
 
 namespace OsmImporter.Cli;
 
-public sealed class UsageException(string message) : Exception(message);
+public sealed class UsageException : Exception
+{
+  public UsageException(string message) : base(message) { }
+}
 
 public sealed class ParsedArgs
 {

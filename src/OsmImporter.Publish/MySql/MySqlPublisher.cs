@@ -374,7 +374,7 @@ public sealed class MySqlPublisher : IPublisher
     var n = _o.Nodes;
     await ExecAsync(conn, tx, $"CREATE TEMPORARY TABLE _osm_upd_nodes (id BIGINT PRIMARY KEY, loc POINT NOT NULL SRID {Srid}, valence INT NOT NULL, loc_changed TINYINT NOT NULL);", ct);
     await InsertAsync(conn, tx, "_osm_upd_nodes",
-      [("id", r => Num(r.Id)), ("loc", r => Geom(Ewkb.PointWkb(r.Lon, r.Lat))), ("valence", r => Num(r.Valence)), ("loc_changed", r => r.LocationChanged ? "1" : "0")], rows, ct);
+      new List<(string Col, Func<NodeRow, string> Lit)> { ("id", r => Num(r.Id)), ("loc", r => Geom(Ewkb.PointWkb(r.Lon, r.Lat))), ("valence", r => Num(r.Valence)), ("loc_changed", r => r.LocationChanged ? "1" : "0") }, rows, ct);
 
     // Asignar el mismo valor es un no-op para InnoDB: la geometría (y su índice espacial) solo se toca si cambió
     var sets = new List<string> { $"t.{Q(n.Location)} = IF(u.loc_changed = 1, u.loc, t.{Q(n.Location)})" };
@@ -387,7 +387,7 @@ public sealed class MySqlPublisher : IPublisher
   {
     if (rows.Count == 0) return;
     var s = _o.Segments;
-    await ExecAsync(conn, tx, $"""
+    await ExecAsync(conn, tx, $@"
       CREATE TEMPORARY TABLE _osm_upd_segs (
         id BIGINT PRIMARY KEY, osm_id BIGINT NOT NULL, name VARCHAR(2000) NULL, highway VARCHAR(200) NOT NULL,
         is_oneway TINYINT NOT NULL, lanes INT NULL, max_speed INT NULL,
@@ -397,9 +397,10 @@ public sealed class MySqlPublisher : IPublisher
         geom LINESTRING NOT NULL SRID {Srid},
         length_m DOUBLE NOT NULL, travel_cost DOUBLE NOT NULL, from_id BIGINT NOT NULL, to_id BIGINT NOT NULL,
         geom_changed TINYINT NOT NULL);
-      """, ct);
+      ", ct);
     await InsertAsync<SegmentRow>(conn, tx, "_osm_upd_segs",
-    [
+    new List<(string Col, Func<SegmentRow, string> Lit)>
+    {
       ("id", r => Num(r.Id)), ("osm_id", r => Num(r.Src.OsmId)), ("name", r => Str(r.Src.Name, 2000)), ("highway", r => Str(r.Src.Highway, 200)),
       ("is_oneway", r => r.Src.IsOneWay ? "1" : "0"), ("lanes", r => NumOrNull(r.Src.Lanes)), ("max_speed", r => NumOrNull(r.Src.MaxSpeed)),
       ("surface", r => Str(r.Src.Surface, 100)), ("smoothness", r => Str(r.Src.Smoothness, 100)), ("tracktype", r => Str(r.Src.TrackType, 50)),
@@ -408,7 +409,7 @@ public sealed class MySqlPublisher : IPublisher
       ("geom", r => Geom(Ewkb.LineWkb(r.Src.X1, r.Src.Y1, r.Src.X2, r.Src.Y2))), ("length_m", r => Dbl(r.Src.LengthMeters)),
       ("travel_cost", r => Dbl(r.Src.TravelCost)), ("from_id", r => Num(r.FromId)), ("to_id", r => Num(r.ToId)),
       ("geom_changed", r => r.GeometryChanged ? "1" : "0"),
-    ], rows, ct);
+    }, rows, ct);
 
     var sets = new List<string>
     {
@@ -445,7 +446,7 @@ public sealed class MySqlPublisher : IPublisher
   private async Task ApplyDependencyMapAsync(MySqlConnection conn, MySqlTransaction tx, DependencyTarget dep, Dictionary<long, long?> map, CancellationToken ct)
   {
     await ExecAsync(conn, tx, "CREATE TEMPORARY TABLE _osm_map (old_id BIGINT PRIMARY KEY, new_id BIGINT NULL);", ct);
-    await InsertAsync<KeyValuePair<long, long?>>(conn, tx, "_osm_map", [("old_id", kv => Num(kv.Key)), ("new_id", kv => NumOrNull(kv.Value))], map, ct);
+    await InsertAsync<KeyValuePair<long, long?>>(conn, tx, "_osm_map", new List<(string Col, Func<KeyValuePair<long, long?>, string> Lit)> { ("old_id", kv => Num(kv.Key)), ("new_id", kv => NumOrNull(kv.Value)) }, map, ct);
 
     var col = $"d.{Q(dep.Column)}";
     var join = dep.IsText ? $"{col} = CAST(m.old_id AS CHAR)" : $"{col} = m.old_id";
@@ -521,14 +522,14 @@ public sealed class MySqlPublisher : IPublisher
     segLines.Add($"CONSTRAINT {Q($"FK_{s.Table}_{n.Table}_{s.FromNodeId}")} FOREIGN KEY ({Q(s.FromNodeId)}) REFERENCES {NodesQ} ({Q(n.Id)})");
     segLines.Add($"CONSTRAINT {Q($"FK_{s.Table}_{n.Table}_{s.ToNodeId}")} FOREIGN KEY ({Q(s.ToNodeId)}) REFERENCES {NodesQ} ({Q(n.Id)})");
 
-    return $"""
+    return $@"
       CREATE TABLE {NodesQ} (
         {string.Join(",\n  ", nodeLines)}
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
       CREATE TABLE {SegsQ} (
         {string.Join(",\n  ", segLines)}
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-      """;
+      ";
   }
 
   private IEnumerable<string> CreateIndexesDdl()
@@ -555,10 +556,10 @@ public sealed class MySqlPublisher : IPublisher
 
   private async Task<Dictionary<string, ColumnInfo>> ColumnsAsync(MySqlConnection conn, string table, CancellationToken ct, string? schema = null)
   {
-    await using var cmd = new MySqlCommand("""
+    await using var cmd = new MySqlCommand(@"
       SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, CHARACTER_MAXIMUM_LENGTH, EXTRA, SRS_ID
       FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = @s AND TABLE_NAME = @t
-      """, conn);
+      ", conn);
     cmd.Parameters.AddWithValue("@s", schema ?? _database);
     cmd.Parameters.AddWithValue("@t", table);
     var d = new Dictionary<string, ColumnInfo>(StringComparer.OrdinalIgnoreCase);
@@ -661,12 +662,12 @@ public sealed class MySqlPublisher : IPublisher
   {
     var list = new List<DependencyTarget>();
     var fks = new List<(string Schema, string Table, string Column, string Target)>();
-    await using (var cmd = new MySqlCommand("""
+    await using (var cmd = new MySqlCommand(@"
       SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME
       FROM information_schema.KEY_COLUMN_USAGE
       WHERE REFERENCED_TABLE_SCHEMA = @s AND REFERENCED_TABLE_NAME IN (@n, @g)
         AND NOT (TABLE_SCHEMA = @s AND TABLE_NAME IN (@n, @g))
-      """, conn))
+      ", conn))
     {
       cmd.Parameters.AddWithValue("@s", _database);
       cmd.Parameters.AddWithValue("@n", _o.Nodes.Table);
@@ -749,14 +750,14 @@ public sealed class MySqlPublisher : IPublisher
     var g = Q(s.Geometry);
     var len = s.LengthMeters is { } l ? Q(l) : $"ST_Length({g})";
     var segments = new List<ExistingSegment>();
-    await using (var cmd = new MySqlCommand($"""
+    await using (var cmd = new MySqlCommand($@"
       SELECT {Q(s.Id)}, {Q(s.OsmId)}, {Q(s.HighwayType)},
              {Lon($"ST_StartPoint({g})", segGeo)}, {Lat($"ST_StartPoint({g})", segGeo)},
              {Lon($"ST_EndPoint({g})", segGeo)}, {Lat($"ST_EndPoint({g})", segGeo)}, {len},
              {Opt(s.Name, "NULL")}, {Opt(s.IsOneWay, "0")}, {Opt(s.Lanes, "NULL")}, {Opt(s.MaxSpeed, "NULL")},
              {Opt(s.TravelCost, "0")}, {Q(s.FromNodeId)}, {Q(s.ToNodeId)}
       FROM {SegsQ}
-      """, conn))
+      ", conn))
     await using (var r = await cmd.ExecuteReaderAsync(ct))
     {
       while (await r.ReadAsync(ct))

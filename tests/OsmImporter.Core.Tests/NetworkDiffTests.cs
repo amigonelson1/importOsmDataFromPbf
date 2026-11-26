@@ -9,7 +9,7 @@ namespace OsmImporter.Core.Tests;
 
 public class NetworkDiffTests : IDisposable
 {
-  private readonly List<string> _files = [];
+  private readonly List<string> _files = new();
 
   private static SelectedWay Way(long id, params (double, double)[] coords) => new()
   {

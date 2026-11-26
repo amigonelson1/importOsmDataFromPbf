@@ -222,7 +222,7 @@ public sealed class SqlServerPublisher : IPublisher
     if (flags.Backup && !flags.DryRun) result.Backups.AddRange(await BackupAsync(conn, tx, ct));
 
     var heavy = plan.SegmentInserts.Count + plan.SegmentUpdates.Count > 0.05 * Math.Max(1, existingCount);
-    var indexes = heavy ? await DisableIndexesAsync(conn, tx, ct) : [];
+    var indexes = heavy ? await DisableIndexesAsync(conn, tx, ct) : new List<(string Table, string Index)>();
 
     var now = DateTime.UtcNow;
     Log.Info("  insertando y actualizando...");
@@ -266,7 +266,7 @@ public sealed class SqlServerPublisher : IPublisher
   {
     await ExecAsync(conn, tx, "CREATE TABLE #osm_nodes (id bigint NOT NULL, wkb varbinary(64) NOT NULL, valence int NOT NULL);", ct);
     var count = await BulkAsync<NodeRow>(conn, tx, "#osm_nodes",
-      [("id", typeof(long), r => r.Id), ("wkb", typeof(byte[]), r => Ewkb.PointWkb(r.Lon, r.Lat)), ("valence", typeof(int), r => r.Valence)], rows, ct);
+      new (string, Type, Func<NodeRow, object?>)[] { ("id", typeof(long), r => r.Id), ("wkb", typeof(byte[]), r => Ewkb.PointWkb(r.Lon, r.Lat)), ("valence", typeof(int), r => r.Valence) }, rows, ct);
 
     if (count > 0)
     {
@@ -275,11 +275,11 @@ public sealed class SqlServerPublisher : IPublisher
       var vals = new List<string> { "s.id", $"{spatial}::STGeomFromWKB(s.wkb, {Srid})" };
       if (n.Valence is { } v && (nodeCols == null || nodeCols.ContainsKey(v))) { cols.Add(Q(v)); vals.Add("s.valence"); }
       if (n.CreatedAt is { } c && (nodeCols == null || nodeCols.ContainsKey(c))) { cols.Add(Q(c)); vals.Add("@now"); }
-      await ExecAsync(conn, tx, $"""
+      await ExecAsync(conn, tx, $@"
         SET IDENTITY_INSERT {NodesQ} ON;
         INSERT INTO {NodesQ} ({string.Join(", ", cols)}) SELECT {string.Join(", ", vals)} FROM #osm_nodes s;
         SET IDENTITY_INSERT {NodesQ} OFF;
-        """, ct, ("@now", now));
+        ", ct, ("@now", now));
     }
 
     await ExecAsync(conn, tx, "DROP TABLE #osm_nodes;", ct);
@@ -298,11 +298,11 @@ public sealed class SqlServerPublisher : IPublisher
       cols.Insert(0, Q(_o.Segments.Id));
       vals.Insert(0, "s.id");
       if (_o.Segments.CreatedAt is { } c && (segCols == null || segCols.ContainsKey(c))) { cols.Add(Q(c)); vals.Add("@now"); }
-      await ExecAsync(conn, tx, $"""
+      await ExecAsync(conn, tx, $@"
         SET IDENTITY_INSERT {SegsQ} ON;
         INSERT INTO {SegsQ} ({string.Join(", ", cols)}) SELECT {string.Join(", ", vals)} FROM #osm_segs s;
         SET IDENTITY_INSERT {SegsQ} OFF;
-        """, ct, ("@now", now));
+        ", ct, ("@now", now));
     }
 
     await ExecAsync(conn, tx, "DROP TABLE #osm_segs;", ct);
@@ -315,7 +315,7 @@ public sealed class SqlServerPublisher : IPublisher
     var n = _o.Nodes;
     await ExecAsync(conn, tx, "CREATE TABLE #osm_upd_nodes (id bigint PRIMARY KEY, wkb varbinary(64) NOT NULL, valence int NOT NULL, loc_changed bit NOT NULL);", ct);
     await BulkAsync<NodeRow>(conn, tx, "#osm_upd_nodes",
-      [("id", typeof(long), r => r.Id), ("wkb", typeof(byte[]), r => Ewkb.PointWkb(r.Lon, r.Lat)), ("valence", typeof(int), r => r.Valence), ("loc_changed", typeof(bool), r => r.LocationChanged)], rows, ct);
+      new (string, Type, Func<NodeRow, object?>)[] { ("id", typeof(long), r => r.Id), ("wkb", typeof(byte[]), r => Ewkb.PointWkb(r.Lon, r.Lat)), ("valence", typeof(int), r => r.Valence), ("loc_changed", typeof(bool), r => r.LocationChanged) }, rows, ct);
 
     // geometría solo donde cambió (evita mantener el índice espacial por nada)
     await ExecAsync(conn, tx, $"UPDATE t SET t.{Q(n.Location)} = {spatial}::STGeomFromWKB(u.wkb, {Srid}) FROM {NodesQ} t JOIN #osm_upd_nodes u ON t.{Q(n.Id)} = u.id WHERE u.loc_changed = 1;", ct);
@@ -360,7 +360,7 @@ public sealed class SqlServerPublisher : IPublisher
   }
 
   private static Task CreateSegmentStageAsync(SqlConnection conn, SqlTransaction tx, string name, CancellationToken ct) =>
-    ExecAsync(conn, tx, $"""
+    ExecAsync(conn, tx, $@"
       CREATE TABLE {name} (
         id bigint PRIMARY KEY, osm_id bigint NOT NULL, name nvarchar(4000) NULL, highway nvarchar(400) NOT NULL,
         is_oneway bit NOT NULL, lanes int NULL, max_speed int NULL,
@@ -369,10 +369,11 @@ public sealed class SqlServerPublisher : IPublisher
         max_weight float NULL, max_height float NULL, max_width float NULL,
         wkb varbinary(64) NOT NULL, length_m float NOT NULL, travel_cost float NOT NULL,
         from_id bigint NOT NULL, to_id bigint NOT NULL, geom_changed bit NOT NULL);
-      """, ct);
+      ", ct);
 
   private static (string, Type, Func<SegmentRow, object?>)[] SegmentStageColumns(int highwayLength, int nameLength) =>
-  [
+  new (string, Type, Func<SegmentRow, object?>)[]
+  {
     ("id", typeof(long), r => r.Id),
     ("osm_id", typeof(long), r => r.Src.OsmId),
     ("name", typeof(string), r => r.Src.Name is { } n && n.Length > nameLength ? n[..nameLength] : r.Src.Name),
@@ -395,7 +396,7 @@ public sealed class SqlServerPublisher : IPublisher
     ("from_id", typeof(long), r => r.FromId),
     ("to_id", typeof(long), r => r.ToId),
     ("geom_changed", typeof(bool), r => r.GeometryChanged),
-  ];
+  };
 
   private (List<string> Cols, List<string> Vals) SegmentWriteColumns(string spatial, Dictionary<string, ColumnInfo>? segCols = null)
   {
@@ -460,7 +461,7 @@ public sealed class SqlServerPublisher : IPublisher
   private static async Task DeleteIdsAsync(SqlConnection conn, SqlTransaction tx, string table, string idCol, IEnumerable<long> ids, CancellationToken ct)
   {
     await ExecAsync(conn, tx, "CREATE TABLE #osm_del (id bigint PRIMARY KEY);", ct);
-    var count = await BulkAsync<long>(conn, tx, "#osm_del", [("id", typeof(long), id => id)], ids, ct);
+    var count = await BulkAsync<long>(conn, tx, "#osm_del", new (string, Type, Func<long, object?>)[] { ("id", typeof(long), id => id) }, ids, ct);
     if (count > 0) await ExecAsync(conn, tx, $"DELETE t FROM {table} t JOIN #osm_del d ON t.{Q(idCol)} = d.id;", ct);
     await ExecAsync(conn, tx, "DROP TABLE #osm_del;", ct);
   }
@@ -468,7 +469,7 @@ public sealed class SqlServerPublisher : IPublisher
   private async Task ApplyDependencyMapAsync(SqlConnection conn, SqlTransaction tx, DependencyTarget dep, Dictionary<long, long?> map, CancellationToken ct)
   {
     await ExecAsync(conn, tx, "CREATE TABLE #osm_map (old_id bigint PRIMARY KEY, new_id bigint NULL);", ct);
-    await BulkAsync<KeyValuePair<long, long?>>(conn, tx, "#osm_map", [("old_id", typeof(long), kv => kv.Key), ("new_id", typeof(long), kv => kv.Value)], map, ct);
+    await BulkAsync<KeyValuePair<long, long?>>(conn, tx, "#osm_map", new (string, Type, Func<KeyValuePair<long, long?>, object?>)[] { ("old_id", typeof(long), kv => kv.Key), ("new_id", typeof(long), kv => kv.Value) }, map, ct);
     var col = $"d.{Q(dep.Column)}";
     var join = dep.IsText ? $"{col} = CAST(m.old_id AS nvarchar(40))" : $"{col} = m.old_id";
     var value = dep.IsText ? "CAST(m.new_id AS nvarchar(40))" : "m.new_id";
@@ -484,10 +485,10 @@ public sealed class SqlServerPublisher : IPublisher
     var list = new List<(string, string)>();
     foreach (var table in new[] { NodesQ, SegsQ })
     {
-      await using var cmd = new SqlCommand("""
+      await using var cmd = new SqlCommand(@"
         SELECT name FROM sys.indexes
         WHERE object_id = OBJECT_ID(@t) AND type_desc IN ('NONCLUSTERED', 'SPATIAL') AND is_unique = 0 AND is_disabled = 0
-        """, conn, tx);
+        ", conn, tx);
       cmd.Parameters.AddWithValue("@t", table);
       await using (var r = await cmd.ExecuteReaderAsync(ct))
         while (await r.ReadAsync(ct)) list.Add((table, r.GetString(0)));
@@ -540,14 +541,14 @@ public sealed class SqlServerPublisher : IPublisher
     segLines.Add($"CONSTRAINT {Q($"FK_{s.Table}_{n.Table}_{s.FromNodeId}")} FOREIGN KEY ({Q(s.FromNodeId)}) REFERENCES {NodesQ} ({Q(n.Id)})");
     segLines.Add($"CONSTRAINT {Q($"FK_{s.Table}_{n.Table}_{s.ToNodeId}")} FOREIGN KEY ({Q(s.ToNodeId)}) REFERENCES {NodesQ} ({Q(n.Id)})");
 
-    return $"""
+    return $@"
       CREATE TABLE {NodesQ} (
         {string.Join(",\n  ", nodeLines)}
       );
       CREATE TABLE {SegsQ} (
         {string.Join(",\n  ", segLines)}
       );
-      """;
+      ";
   }
 
   private IEnumerable<string> CreateIndexesDdl(string spatial)
@@ -577,13 +578,13 @@ public sealed class SqlServerPublisher : IPublisher
 
   private async Task<Dictionary<string, ColumnInfo>> ColumnsAsync(SqlConnection conn, SqlTransaction? tx, string? schema, string table, CancellationToken ct)
   {
-    await using var cmd = new SqlCommand("""
+    await using var cmd = new SqlCommand(@"
       SELECT c.name, t.name, c.is_nullable,
              CASE WHEN t.name IN ('nvarchar', 'nchar') AND c.max_length > 0 THEN c.max_length / 2 WHEN c.max_length > 0 THEN c.max_length ELSE NULL END,
              c.is_computed
       FROM sys.columns c JOIN sys.types t ON t.user_type_id = c.user_type_id
       WHERE c.object_id = OBJECT_ID(@t)
-      """, conn, tx);
+      ", conn, tx);
     cmd.Parameters.AddWithValue("@t", Qualified(table, schema));
     var d = new Dictionary<string, ColumnInfo>(StringComparer.OrdinalIgnoreCase);
     await using var r = await cmd.ExecuteReaderAsync(ct);
@@ -690,13 +691,13 @@ public sealed class SqlServerPublisher : IPublisher
   {
     var list = new List<DependencyTarget>();
     var fks = new List<(string Schema, string Table, string Column, string Target)>();
-    await using (var cmd = new SqlCommand("""
+    await using (var cmd = new SqlCommand(@"
       SELECT OBJECT_SCHEMA_NAME(fkc.parent_object_id), OBJECT_NAME(fkc.parent_object_id), pc.name, OBJECT_NAME(fkc.referenced_object_id)
       FROM sys.foreign_key_columns fkc
       JOIN sys.columns pc ON pc.object_id = fkc.parent_object_id AND pc.column_id = fkc.parent_column_id
       WHERE fkc.referenced_object_id IN (OBJECT_ID(@n), OBJECT_ID(@s))
         AND fkc.parent_object_id NOT IN (OBJECT_ID(@n), OBJECT_ID(@s))
-      """, conn, tx))
+      ", conn, tx))
     {
       cmd.Parameters.AddWithValue("@n", NodesQ);
       cmd.Parameters.AddWithValue("@s", SegsQ);
@@ -776,14 +777,14 @@ public sealed class SqlServerPublisher : IPublisher
     var sp = meta.SegSpatial;
     var len = s.LengthMeters is { } l && (meta.SegCols == null || meta.SegCols.ContainsKey(l)) ? Q(l) : (sp == "geography" ? $"{g}.STLength()" : "0");
     var segments = new List<ExistingSegment>();
-    await using (var cmd = new SqlCommand($"""
+    await using (var cmd = new SqlCommand($@"
       SELECT {Q(s.Id)}, {Q(s.OsmId)}, {Q(s.HighwayType)},
              {Lon($"{g}.STStartPoint()", sp)}, {Lat($"{g}.STStartPoint()", sp)},
              {Lon($"{g}.STEndPoint()", sp)}, {Lat($"{g}.STEndPoint()", sp)}, {len},
              {Opt(s.Name, "NULL")}, {Opt(s.IsOneWay, "CAST(0 AS bit)")}, {Opt(s.Lanes, "NULL")}, {Opt(s.MaxSpeed, "NULL")},
              {Opt(s.TravelCost, "CAST(0 AS float)")}, {Q(s.FromNodeId)}, {Q(s.ToNodeId)}
       FROM {SegsQ}
-      """, conn, tx))
+      ", conn, tx))
     await using (var r = await cmd.ExecuteReaderAsync(ct))
     {
       while (await r.ReadAsync(ct))

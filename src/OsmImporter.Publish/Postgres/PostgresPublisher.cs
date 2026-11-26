@@ -143,7 +143,10 @@ public sealed partial class PostgresPublisher : IPublisher
           await ExecAsync(conn, $"DELETE FROM {NodesQ};", ct);
         }
 
-        indexes = [.. await CaptureIndexesAsync(conn, NodesQ, ct), .. await CaptureIndexesAsync(conn, SegsQ, ct)];
+        var nodeIndexes = await CaptureIndexesAsync(conn, NodesQ, ct);
+        var segIndexes = await CaptureIndexesAsync(conn, SegsQ, ct);
+        indexes = new List<(string Name, string Definition)>(nodeIndexes);
+        indexes.AddRange(segIndexes);
         foreach (var (name, _) in indexes)
           await ExecAsync(conn, $"DROP INDEX {Qualified(name)};", ct);
       }
@@ -316,14 +319,14 @@ public sealed partial class PostgresPublisher : IPublisher
     segLines.Add($"CONSTRAINT {Q($"FK_{s.Table}_{n.Table}_{s.FromNodeId}")} FOREIGN KEY ({Q(s.FromNodeId)}) REFERENCES {NodesQ} ({Q(n.Id)})");
     segLines.Add($"CONSTRAINT {Q($"FK_{s.Table}_{n.Table}_{s.ToNodeId}")} FOREIGN KEY ({Q(s.ToNodeId)}) REFERENCES {NodesQ} ({Q(n.Id)})");
 
-    return $"""
+    return $@"
       CREATE TABLE {NodesQ} (
         {string.Join(",\n  ", nodeLines)}
       );
       CREATE TABLE {SegsQ} (
         {string.Join(",\n  ", segLines)}
       );
-      """;
+      ";
   }
 
   /// <summary>Índices estándar: GIST en geometrías y extremos de segmento, btree en FKs, osm_id y tipo de vía.</summary>
@@ -420,10 +423,10 @@ public sealed partial class PostgresPublisher : IPublisher
 
   private async Task<Dictionary<string, ColumnInfo>> ColumnsAsync(NpgsqlConnection conn, string table, CancellationToken ct)
   {
-    await using var cmd = new NpgsqlCommand("""
+    await using var cmd = new NpgsqlCommand(@"
       SELECT column_name, data_type, udt_name, character_maximum_length
       FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2
-      """, conn);
+      ", conn);
     cmd.Parameters.Add(new() { Value = SchemaName });
     cmd.Parameters.Add(new() { Value = table });
 
@@ -449,11 +452,11 @@ public sealed partial class PostgresPublisher : IPublisher
 
   private async Task RequireSridAsync(NpgsqlConnection conn, string table, string column, CancellationToken ct)
   {
-    await using var cmd = new NpgsqlCommand("""
+    await using var cmd = new NpgsqlCommand(@"
       SELECT srid FROM geometry_columns WHERE f_table_schema = $1 AND f_table_name = $2 AND f_geometry_column = $3
       UNION ALL
       SELECT srid FROM geography_columns WHERE f_table_schema = $1 AND f_table_name = $2 AND f_geography_column = $3
-      """, conn);
+      ", conn);
     cmd.Parameters.Add(new() { Value = SchemaName });
     cmd.Parameters.Add(new() { Value = table });
     cmd.Parameters.Add(new() { Value = column });
@@ -488,7 +491,7 @@ public sealed partial class PostgresPublisher : IPublisher
 
     // 1) FKs reales desde otras tablas hacia nodos/segmentos
     var fks = new List<(string Schema, string Table, string Column, string Target)>();
-    await using (var cmd = new NpgsqlCommand("""
+    await using (var cmd = new NpgsqlCommand(@"
       SELECT ns.nspname, src.relname, a.attname, c.confrelid::regclass::text
       FROM pg_constraint c
       JOIN pg_class src ON src.oid = c.conrelid
@@ -497,7 +500,7 @@ public sealed partial class PostgresPublisher : IPublisher
       WHERE c.contype = 'f'
         AND c.confrelid IN ($1::regclass, $2::regclass)
         AND c.conrelid NOT IN ($1::regclass, $2::regclass)
-      """, conn))
+      ", conn))
     {
       cmd.Parameters.Add(new() { Value = NodesQ });
       cmd.Parameters.Add(new() { Value = SegsQ });
@@ -542,12 +545,12 @@ public sealed partial class PostgresPublisher : IPublisher
   /// <summary>Índices que no respaldan una constraint (PK/UNIQUE/EXCLUDE): se pueden quitar y recrear tal cual.</summary>
   private static async Task<List<(string, string)>> CaptureIndexesAsync(NpgsqlConnection conn, string qualified, CancellationToken ct)
   {
-    await using var cmd = new NpgsqlCommand("""
+    await using var cmd = new NpgsqlCommand(@"
       SELECT ci.relname, pg_get_indexdef(i.indexrelid)
       FROM pg_index i JOIN pg_class ci ON ci.oid = i.indexrelid
       WHERE i.indrelid = $1::regclass
         AND NOT EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conindid = i.indexrelid)
-      """, conn);
+      ", conn);
     cmd.Parameters.Add(new() { Value = qualified });
     var list = new List<(string, string)>();
     await using var r = await cmd.ExecuteReaderAsync(ct);
@@ -589,12 +592,12 @@ public sealed partial class PostgresPublisher : IPublisher
     var len = s.LengthMeters is { } l ? Q(l) : $"ST_Length({Q(s.Geometry)}::geography)";
 
     var segments = new List<ExistingSegment>();
-    await using (var cmd = new NpgsqlCommand($"""
+    await using (var cmd = new NpgsqlCommand($@"
       SELECT {Q(s.Id)}, {Q(s.OsmId)}, {Q(s.HighwayType)},
              ST_X(ST_StartPoint({g})), ST_Y(ST_StartPoint({g})), ST_X(ST_EndPoint({g})), ST_Y(ST_EndPoint({g})),
              {len}
       FROM {SegsQ}
-      """, conn))
+      ", conn))
     await using (var r = await cmd.ExecuteReaderAsync(ct))
     {
       while (await r.ReadAsync(ct))

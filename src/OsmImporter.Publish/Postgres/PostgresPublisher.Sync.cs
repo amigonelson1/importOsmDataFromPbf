@@ -101,7 +101,7 @@ public sealed partial class PostgresPublisher
 
     // ---------------------------------------------------------------- staging
     Log.Info("  cargando staging...");
-    await ExecAsync(conn, $"""
+    await ExecAsync(conn, $@"
       CREATE TEMP TABLE {StageNodes} (id bigint PRIMARY KEY, loc geometry(Point,4326) NOT NULL, valence integer NOT NULL, is_new boolean NOT NULL) ON COMMIT DROP;
       CREATE TEMP TABLE {StageSegs} (
         id bigint PRIMARY KEY, osm_id bigint NOT NULL, name text, highway text NOT NULL, is_oneway boolean NOT NULL,
@@ -112,19 +112,19 @@ public sealed partial class PostgresPublisher
         travel_cost double precision NOT NULL, from_id bigint NOT NULL, to_id bigint NOT NULL, is_new boolean NOT NULL) ON COMMIT DROP;
       CREATE TEMP TABLE {RetiredNodes} (id bigint PRIMARY KEY) ON COMMIT DROP;
       CREATE TEMP TABLE {RetiredSegs} (id bigint PRIMARY KEY) ON COMMIT DROP;
-      """, ct);
+      ", ct);
 
     await CopyStageNodesAsync(conn, diff, ct);
     await CopyStageSegmentsAsync(conn, diff, ct);
     await CopyIdsAsync(conn, RetiredNodes, diff.RetiredNodeIds, ct);
     await CopyIdsAsync(conn, RetiredSegs, diff.RetiredSegmentIds, ct);
-    await ExecAsync(conn, $"""
+    await ExecAsync(conn, $@"
       CREATE INDEX ON {StageNodes} USING GIST (loc);
       CREATE INDEX ON {StageSegs} USING GIST (geom);
       CREATE TEMP TABLE {RetiredNodesAll} ON COMMIT DROP AS TABLE {RetiredNodes};
       CREATE TEMP TABLE {RetiredSegsAll} ON COMMIT DROP AS TABLE {RetiredSegs};
       ANALYZE {StageNodes}; ANALYZE {StageSegs}; ANALYZE {RetiredNodes}; ANALYZE {RetiredSegs};
-      """, ct);
+      ", ct);
 
     // ---------------------------------------------------------------- aplicar (orden importa)
     // 1) altas y cambios: así las reasignaciones pueden apuntar a nodos/segmentos nuevos (las FKs
@@ -266,11 +266,13 @@ public sealed partial class PostgresPublisher
   {
     var seq = await SequenceOfAsync(conn, table, idColumn, ct);
     if (seq is null) return;
-    await ExecAsync(conn, $"""
-      SELECT setval('{seq.Replace("'", "''")}',
-        GREATEST(COALESCE((SELECT max({Q(idColumn)}) FROM {table}), 0),
+    var seqEscaped = seq.Replace("'", "''");
+    var maxIdCol = Q(idColumn);
+    await ExecAsync(conn, $@"
+      SELECT setval('{seqEscaped}',
+        GREATEST(COALESCE((SELECT max({maxIdCol}) FROM {table}), 0),
                  (SELECT CASE WHEN is_called THEN last_value ELSE last_value - 1 END FROM {seq})) + 1, false);
-      """, ct);
+      ", ct);
   }
 
   private static async Task<string?> SequenceOfAsync(NpgsqlConnection conn, string table, string idColumn, CancellationToken ct)
@@ -292,7 +294,7 @@ public sealed partial class PostgresPublisher
     var list = new List<DependencyTarget>();
     var fks = new List<(string Schema, string Table, string Column, string Target)>();
 
-    await using (var cmd = new NpgsqlCommand("""
+    await using (var cmd = new NpgsqlCommand(@"
       SELECT ns.nspname, src.relname, a.attname, c.confrelid::regclass::text
       FROM pg_constraint c
       JOIN pg_class src ON src.oid = c.conrelid
@@ -301,7 +303,7 @@ public sealed partial class PostgresPublisher
       WHERE c.contype = 'f'
         AND c.confrelid IN ($1::regclass, $2::regclass)
         AND c.conrelid NOT IN ($1::regclass, $2::regclass)
-      """, conn))
+      ", conn))
     {
       cmd.Parameters.Add(new() { Value = NodesQ });
       cmd.Parameters.Add(new() { Value = SegsQ });
@@ -335,10 +337,10 @@ public sealed partial class PostgresPublisher
 
   private static async Task<(bool IsText, bool Nullable)> ColumnKindAsync(NpgsqlConnection conn, string schema, string table, string column, CancellationToken ct)
   {
-    await using var cmd = new NpgsqlCommand("""
+    await using var cmd = new NpgsqlCommand(@"
       SELECT data_type, is_nullable FROM information_schema.columns
       WHERE table_schema = $1 AND table_name = $2 AND column_name = $3
-      """, conn);
+      ", conn);
     cmd.Parameters.Add(new() { Value = schema });
     cmd.Parameters.Add(new() { Value = table });
     cmd.Parameters.Add(new() { Value = column });
@@ -382,38 +384,42 @@ public sealed partial class PostgresPublisher
       // Grados para el prefiltro con índice (holgado); el filtro exacto es en metros sobre la esfera.
       var deg = (st.MaxDistanceMeters / 111_320.0 * 3).ToString(System.Globalization.CultureInfo.InvariantCulture);
       var maxd = st.MaxDistanceMeters.ToString(System.Globalization.CultureInfo.InvariantCulture);
+      var cmpRid = Cmp("r.id");
       string nearest;
       if (dep.References == "nodes")
       {
         var loc = $"o.{Q(_o.Nodes.Location)}::geometry";
-        nearest = $"""
+        nearest = $@"
           SELECT r.id AS old_id,
                  (SELECT s.id FROM {StageNodes} s
                    WHERE ST_DWithin(s.loc, {loc}, {deg}) AND ST_DistanceSphere(s.loc, {loc}) <= {maxd}
                    ORDER BY s.loc <-> {loc} LIMIT 1) AS new_id
           FROM {retired} r JOIN {NodesQ} o ON o.{Q(_o.Nodes.Id)} = r.id
-          WHERE EXISTS (SELECT 1 FROM {depQ} d WHERE {Cmp("r.id")}{filter})
-          """;
+          WHERE EXISTS (SELECT 1 FROM {depQ} d WHERE {cmpRid}{filter})
+          ";
       }
       else
       {
         // Punto medio del segmento retirado; se prefiere un segmento de la misma vía OSM.
         var mid = $"ST_LineInterpolatePoint(o.{Q(_o.Segments.Geometry)}::geometry, 0.5)";
-        nearest = $"""
+        var segOsmCol = Q(_o.Segments.OsmId);
+        var segIdCol = Q(_o.Segments.Id);
+        nearest = $@"
           SELECT r.id AS old_id,
                  (SELECT s.id FROM {StageSegs} s
                    WHERE ST_DWithin(s.geom, {mid}, {deg}) AND ST_DistanceSphere(ST_ClosestPoint(s.geom, {mid}), {mid}) <= {maxd}
-                   ORDER BY (s.osm_id <> o.{Q(_o.Segments.OsmId)}), s.geom <-> {mid} LIMIT 1) AS new_id
-          FROM {retired} r JOIN {SegsQ} o ON o.{Q(_o.Segments.Id)} = r.id
-          WHERE EXISTS (SELECT 1 FROM {depQ} d WHERE {Cmp("r.id")}{filter})
-          """;
+                   ORDER BY (s.osm_id <> o.{segOsmCol}), s.geom <-> {mid} LIMIT 1) AS new_id
+          FROM {retired} r JOIN {SegsQ} o ON o.{segIdCol} = r.id
+          WHERE EXISTS (SELECT 1 FROM {depQ} d WHERE {cmpRid}{filter})
+          ";
       }
 
-      outcome.Remapped = await ExecCountAsync(conn, $"""
+      var cmpOld = Cmp("m.old_id");
+      outcome.Remapped = await ExecCountAsync(conn, $@"
         WITH m AS ({nearest})
         UPDATE {depQ} d SET {col} = {newValue}
-        FROM m WHERE {Cmp("m.old_id")} AND m.new_id IS NOT NULL{filter};
-        """, ct);
+        FROM m WHERE {cmpOld} AND m.new_id IS NOT NULL{filter};
+        ", ct);
       pending -= outcome.Remapped;
       strategy = st.Fallback;
       if (pending > 0) Log.Info($"      {outcome.Remapped:N0} reasignadas; {pending:N0} sin candidato a ≤ {st.MaxDistanceMeters} m → {strategy}");
@@ -514,11 +520,11 @@ public sealed partial class PostgresPublisher
     await ExecCountAsync(conn, $"DELETE FROM {SegsQ} t USING {RetiredSegs} r WHERE t.{Q(s.Id)} = r.id;", ct);
 
     // No se borra ningún nodo que siga referenciado por un segmento (p. ej. segmento conservado por report)
-    await ExecAsync(conn, $"""
+    await ExecAsync(conn, $@"
       DELETE FROM {RetiredNodes} r
       WHERE EXISTS (SELECT 1 FROM {SegsQ} t WHERE t.{Q(s.FromNodeId)} = r.id)
          OR EXISTS (SELECT 1 FROM {SegsQ} t WHERE t.{Q(s.ToNodeId)} = r.id);
-      """, ct);
+      ", ct);
     await ExecCountAsync(conn, $"DELETE FROM {NodesQ} t USING {RetiredNodes} r WHERE t.{Q(n.Id)} = r.id;", ct);
 
     stats.NodesRetained = await CountScalarAsync(conn, $"SELECT count(*) FROM {RetiredNodesAll} a WHERE NOT EXISTS (SELECT 1 FROM {RetiredNodes} r WHERE r.id = a.id)", ct);
@@ -526,12 +532,12 @@ public sealed partial class PostgresPublisher
 
     if (stats.NodesRetained > 0 && n.Valence is { } val)
     {
-      await ExecAsync(conn, $"""
+      await ExecAsync(conn, $@"
         UPDATE {NodesQ} t SET {Q(val)} =
           (SELECT count(*) FROM {SegsQ} x WHERE x.{Q(s.FromNodeId)} = t.{Q(n.Id)}) +
           (SELECT count(*) FROM {SegsQ} x WHERE x.{Q(s.ToNodeId)} = t.{Q(n.Id)})
         WHERE t.{Q(n.Id)} IN (SELECT id FROM {RetiredNodesAll} EXCEPT SELECT id FROM {RetiredNodes});
-        """, ct);
+        ", ct);
     }
   }
 
@@ -590,22 +596,22 @@ public sealed partial class PostgresPublisher
   {
     var sets = cols.Select(c => $"{Q(c.Col)} = CAST({c.Expr} AS {types[c.Col]})");
     var diffs = cols.Select(c => DiffPredicate(c, types));
-    return $"""
+    return $@"
       UPDATE {table} t SET {string.Join(", ", sets)}
       FROM {stage} s
       WHERE t.{Q(idCol)} = s.id AND NOT s.is_new
         AND ({string.Join("\n OR ", diffs)});
-      """;
+      ";
   }
 
   // ==================================================================== utilidades
 
   private static async Task<Dictionary<string, string>> FormattedTypesAsync(NpgsqlConnection conn, string table, CancellationToken ct)
   {
-    await using var cmd = new NpgsqlCommand("""
+    await using var cmd = new NpgsqlCommand(@"
       SELECT a.attname, format_type(a.atttypid, a.atttypmod)
       FROM pg_attribute a WHERE a.attrelid = $1::regclass AND a.attnum > 0 AND NOT a.attisdropped
-      """, conn);
+      ", conn);
     cmd.Parameters.Add(new() { Value = table });
     var d = new Dictionary<string, string>(StringComparer.Ordinal);
     await using var r = await cmd.ExecuteReaderAsync(ct);

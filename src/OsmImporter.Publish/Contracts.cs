@@ -65,24 +65,24 @@ public sealed class DependencyOutcome
   /// <summary>Quedan apuntando a un Id que ya no existe (referencia lógica + report).</summary>
   public long Dangling { get; set; }
 
-  public List<string> SampleUnresolved { get; set; } = [];
+  public List<string> SampleUnresolved { get; set; } = new();
 }
 
 public sealed class PublishResult
 {
-  public required string Target { get; init; }
-  public required PublishMode Mode { get; init; }
+  public string Target { get; init; } = default!;
+  public PublishMode Mode { get; init; }
   public bool DryRun { get; init; }
   public long NodesWritten { get; set; }
   public long SegmentsWritten { get; set; }
   public long PreviousNodes { get; set; }
   public long PreviousSegments { get; set; }
-  public List<string> Backups { get; } = [];
-  public List<DependencyStatus> Dependencies { get; } = [];
+  public List<string> Backups { get; } = new();
+  public List<DependencyStatus> Dependencies { get; } = new();
   public SyncStats? Sync { get; set; }
-  public Dictionary<string, long> ColumnChanges { get; set; } = [];
-  public List<DependencyOutcome> DependencyOutcomes { get; } = [];
-  public List<string> Steps { get; } = [];
+  public Dictionary<string, long> ColumnChanges { get; set; } = new();
+  public List<DependencyOutcome> DependencyOutcomes { get; } = new();
+  public List<string> Steps { get; } = new();
   public TimeSpan Elapsed { get; set; }
 }
 
@@ -97,8 +97,8 @@ public readonly record struct ExistingNode(long Id, double Lon, double Lat, int 
 
 public sealed class ExistingNetwork
 {
-  public required List<ExistingNode> Nodes { get; init; }
-  public required List<ExistingSegment> Segments { get; init; }
+  public List<ExistingNode> Nodes { get; init; } = default!;
+  public List<ExistingSegment> Segments { get; init; } = default!;
 }
 
 /// <summary>Un adaptador por motor de base de datos.</summary>
@@ -115,7 +115,10 @@ public interface IPublisher : IAsyncDisposable
   Task<Dictionary<string, string>> DiagnosticsAsync(CancellationToken ct = default);
 }
 
-public sealed class DependentDataException(string message) : Exception(message);
+public sealed class DependentDataException : Exception
+{
+  public DependentDataException(string message) : base(message) { }
+}
 
 public static class PublisherFactory
 {

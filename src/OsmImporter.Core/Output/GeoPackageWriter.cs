@@ -79,7 +79,7 @@ public static class GeoPackageWriter
 
   private static void CreateCoreTables(SqliteConnection conn)
   {
-    Exec(conn, """
+    Exec(conn, @"
       CREATE TABLE gpkg_spatial_ref_sys (
         srs_name TEXT NOT NULL, srs_id INTEGER NOT NULL PRIMARY KEY, organization TEXT NOT NULL,
         organization_coordsys_id INTEGER NOT NULL, definition TEXT NOT NULL, description TEXT);
@@ -100,7 +100,7 @@ public static class GeoPackageWriter
         CONSTRAINT ge_tce UNIQUE (table_name, column_name, extension_name));
       INSERT INTO gpkg_spatial_ref_sys VALUES ('Undefined cartesian SRS', -1, 'NONE', -1, 'undefined', 'undefined cartesian coordinate reference system');
       INSERT INTO gpkg_spatial_ref_sys VALUES ('Undefined geographic SRS', 0, 'NONE', 0, 'undefined', 'undefined geographic coordinate reference system');
-      """);
+      ");
 
     using var cmd = conn.CreateCommand();
     cmd.CommandText = "INSERT INTO gpkg_spatial_ref_sys VALUES ('WGS 84 geodetic', 4326, 'EPSG', 4326, $def, 'longitude/latitude coordinates in decimal degrees on the WGS 84 spheroid');";
@@ -110,7 +110,7 @@ public static class GeoPackageWriter
 
   private static void CreateDataTables(SqliteConnection conn)
   {
-    Exec(conn, $"""
+    Exec(conn, $@"
       CREATE TABLE {NodesTable} (
         fid INTEGER PRIMARY KEY,
         geom POINT NOT NULL,
@@ -152,7 +152,7 @@ public static class GeoPackageWriter
         fid INTEGER PRIMARY KEY AUTOINCREMENT,
         key TEXT NOT NULL UNIQUE,
         value TEXT);
-      """);
+      ");
   }
 
   private static void WriteNodes(SqliteConnection conn, SqliteTransaction tx, RoadGraph graph, bool rtree, CancellationToken ct)
@@ -201,7 +201,7 @@ public static class GeoPackageWriter
     using (var cmd = conn.CreateCommand())
     {
       cmd.Transaction = tx;
-      cmd.CommandText = $"""
+      cmd.CommandText = $@"
         INSERT INTO {SegmentsTable}
           (fid, geom, segment_key, osm_id, name, highway, is_oneway, lanes, max_speed,
            surface, smoothness, tracktype, bridge, tunnel, layer, max_weight, max_height, max_width,
@@ -209,12 +209,12 @@ public static class GeoPackageWriter
         VALUES ($fid, $geom, $key, $osm, $name, $hw, $ow, $lanes, $ms,
                 $surf, $smooth, $tt, $br, $tu, $lay, $mw, $mh, $mwd,
                 $ff, $tf, $fk, $tk, $len, $cost);
-        """;
-      string[] names = [
+        ";
+      string[] names = new[] {
         "$fid", "$geom", "$key", "$osm", "$name", "$hw", "$ow", "$lanes", "$ms",
         "$surf", "$smooth", "$tt", "$br", "$tu", "$lay", "$mw", "$mh", "$mwd",
         "$ff", "$tf", "$fk", "$tk", "$len", "$cost"
-      ];
+      };
       var p = names.Select(n => cmd.Parameters.Add(n, SqliteType.Text)).ToArray();
       p[1].SqliteType = SqliteType.Blob;
       cmd.Prepare();
@@ -277,11 +277,11 @@ public static class GeoPackageWriter
 
     using var cmd = conn.CreateCommand();
     cmd.Transaction = tx;
-    cmd.CommandText = $"""
+    cmd.CommandText = $@"
       INSERT INTO {RestrictionsTable} (fid, relation_id, from_osm_id, via_node_key, to_osm_id, restriction)
       VALUES ($fid, $rel, $from, $via, $to, $res);
-      """;
-    string[] names = ["$fid", "$rel", "$from", "$via", "$to", "$res"];
+      ";
+    string[] names = new[] { "$fid", "$rel", "$from", "$via", "$to", "$res" };
     var p = names.Select(n => cmd.Parameters.Add(n, SqliteType.Text)).ToArray();
     cmd.Prepare();
 
@@ -328,7 +328,7 @@ public static class GeoPackageWriter
 
     using var cmd = conn.CreateCommand();
     cmd.Transaction = tx;
-    cmd.CommandText = $"""
+    cmd.CommandText = $@"
       INSERT INTO gpkg_contents (table_name, data_type, identifier, description, min_x, min_y, max_x, max_y, srs_id) VALUES
         ('{NodesTable}', 'features', '{NodesTable}', 'Nodos del grafo vial (coordenada snapeada)', $minx, $miny, $maxx, $maxy, 4326),
         ('{SegmentsTable}', 'features', '{SegmentsTable}', 'Micro-segmentos del grafo vial', $minx, $miny, $maxx, $maxy, 4326),
@@ -336,7 +336,7 @@ public static class GeoPackageWriter
         ('{InfoTable}', 'attributes', '{InfoTable}', 'Parámetros y estadísticas de la construcción', NULL, NULL, NULL, NULL, NULL);
       INSERT INTO gpkg_geometry_columns VALUES ('{NodesTable}', 'geom', 'POINT', 4326, 0, 0);
       INSERT INTO gpkg_geometry_columns VALUES ('{SegmentsTable}', 'geom', 'LINESTRING', 4326, 0, 0);
-      """;
+      ";
     cmd.Parameters.AddWithValue("$minx", minX);
     cmd.Parameters.AddWithValue("$miny", minY);
     cmd.Parameters.AddWithValue("$maxx", maxX);

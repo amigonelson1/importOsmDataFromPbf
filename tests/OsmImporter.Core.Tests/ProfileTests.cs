@@ -9,7 +9,7 @@ namespace OsmImporter.Core.Tests;
 
 public class ProfileTests : IDisposable
 {
-  private readonly List<string> _tempFiles = [];
+  private readonly List<string> _tempFiles = new();
 
   public void Dispose()
   {
@@ -78,12 +78,12 @@ public class ProfileTests : IDisposable
         MaxWeight = 12.5,
         MaxHeight = 3.8,
         MaxWidth = 2.5,
-        Refs = [100, 101]
+        Refs = new long[] { 100, 101 }
       },
-      Coords = [(-68.0, -38.9), (-68.0, -38.9005)]
+      Coords = new[] { (-68.0, -38.9), (-68.0, -38.9005) }
     };
 
-    var (graph, _) = GraphBuilder.Build([way], new BuildOptions());
+    var (graph, _) = GraphBuilder.Build(new[] { way }, new BuildOptions());
     var gpkgPath = Path.Combine(Path.GetTempPath(), $"osmimport-attrs-{Guid.NewGuid():N}.gpkg");
     _tempFiles.Add(gpkgPath);
 

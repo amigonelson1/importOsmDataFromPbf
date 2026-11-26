@@ -11,11 +11,11 @@ public sealed class GraphQuality
   public long SelfLoops { get; init; }
   public long OrphanNodes { get; init; }
 
-  public Dictionary<string, long> ValenceHistogram { get; init; } = [];
+  public Dictionary<string, long> ValenceHistogram { get; init; } = new();
   public long ConnectedComponents { get; init; }
   public double LargestComponentNodePercent { get; init; }
-  public Dictionary<string, double> KmByHighway { get; init; } = [];
-  public Dictionary<string, long> SegmentsByHighway { get; init; } = [];
+  public Dictionary<string, double> KmByHighway { get; init; } = new();
+  public Dictionary<string, long> SegmentsByHighway { get; init; } = new();
 }
 
 public static class GraphAnalysis

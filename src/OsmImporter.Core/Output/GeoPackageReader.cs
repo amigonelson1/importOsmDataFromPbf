@@ -92,12 +92,12 @@ public sealed class GeoPackageReader : IDisposable
     using var cmd = _conn.CreateCommand();
     if (_hasExtendedColumns)
     {
-      cmd.CommandText = $"""
+      cmd.CommandText = $@"
         SELECT fid, segment_key, osm_id, name, highway, is_oneway, lanes, max_speed,
                from_node_fid, to_node_fid, from_node_key, to_node_key, geom, length_m, travel_cost,
                surface, smoothness, tracktype, bridge, tunnel, layer, max_weight, max_height, max_width
         FROM {GeoPackageWriter.SegmentsTable} ORDER BY fid
-        """;
+        ";
       using var r = cmd.ExecuteReader();
       while (r.Read())
       {
@@ -120,11 +120,11 @@ public sealed class GeoPackageReader : IDisposable
     }
     else
     {
-      cmd.CommandText = $"""
+      cmd.CommandText = $@"
         SELECT fid, segment_key, osm_id, name, highway, is_oneway, lanes, max_speed,
                from_node_fid, to_node_fid, from_node_key, to_node_key, geom, length_m, travel_cost
         FROM {GeoPackageWriter.SegmentsTable} ORDER BY fid
-        """;
+        ";
       using var r = cmd.ExecuteReader();
       while (r.Read())
       {

@@ -11,7 +11,7 @@ public static class WaySplitter
 
   public static List<(double Lon, double Lat)[]> Split((double Lon, double Lat)[] lonLat, double splitAt)
   {
-    if (splitAt <= 0 || lonLat.Length < 2) return [lonLat];
+    if (splitAt <= 0 || lonLat.Length < 2) return new List<(double Lon, double Lat)[]> { lonLat };
 
     var pieces = new List<(double Lon, double Lat)[]>();
     var current = new List<(double Lon, double Lat)> { lonLat[0] };
@@ -35,7 +35,7 @@ public static class WaySplitter
           var ipoint = FromWebMercator(ix, iy);
           if (frac != 0) current.Add(ipoint);
           Flush(pieces, current);
-          current = [ipoint];
+          current = new List<(double Lon, double Lat)> { ipoint };
         }
 
         if (tx == ix && ty == iy)
