@@ -22,7 +22,8 @@ Geofabrik ──download──▶ region-AAMMDD.osm.pbf ──build──▶ red
 
 ## Requisitos e instalación
 
-- .NET 9 (runtime) para ejecutar; SDK 9+ para compilar. Memoria: ~4 GB para un país como Argentina.
+- **.NET 10** (runtime) para ejecutar; **SDK 10+** para compilar (C# 13 / .NET 10).
+- Memoria: ~4 GB para procesar extractos a nivel país (ej. Colombia, Argentina).
 
 ```powershell
 # Compilar y generar la distribución en dist/
@@ -42,15 +43,68 @@ Inicia el servidor web local con Kestrel y abre la interfaz gráfica interactiva
 dotnet run --project src/OsmImporter.Cli -- serve
 ```
 
-**Funcionalidades del Visor Web:**
-* 🗺️ **Mapa interactivo con aceleración GPU**: Visualización con MapLibre GL en tema oscuro, claro o **satelital de alta resolución** (Esri World Imagery y Google Hybrid).
-* 🌍 **Búsqueda y descarga de Geofabrik**: Busca países y regiones por nombre y descárgalos directamente al proyecto.
-* 📐 **Selector de área interactivo**: Botón **`✏️ Dibujar área`** para trazar un recuadro directamente con el ratón sobre el mapa y extraer únicamente la zona deseada.
-* 🚀 **Construcción en vivo (Build)**: Genera los GeoPackages (`.gpkg`) con bloqueo seguro de la interfaz y consola de logs en vivo.
-* 📊 **Inspección de carreteras**: Clic sobre cualquier calle para consultar su nombre, velocidad máxima, costo de viaje, sentido y nodo OSM.
-* 📂 **Acceso rápido a carpetas**: Botones para abrir `output\` y `downloads\` directamente en el Explorador de Windows.
+**Especificaciones y Funcionalidades del Visor Web (`serve`):**
 
-### 2. Ejecución por Consola (CLI / Automatización)
+* 🎛️ **Panel lateral retráctil con cabecera fija**:
+  * Botón integrado para **ocultar a la izquierda (◀) y re-desplegar** el panel lateral, maximizando el espacio de visualización cartográfica.
+  * Cabecera de pestañas sólida (`sticky top-0 z-30 bg-slate-900`) con tipografía optimizada (`text-xs` y `text-sm`) que previene cualquier solapamiento visual durante el scroll interno.
+
+* 📑 **5 Pestañas especializadas**:
+  1. **📥 Carga de Data**:
+     * Búsqueda en vivo y descarga de extractos oficiales `.osm.pbf` de Geofabrik.
+     * Selector de perfil JSON y configuración de buffer perimetral.
+     * **Delimitación de Área Operativa (BBox)**: botón interactivo **`✏️ Dibujar área`** (clic y arrastre directo en el mapa) y **`🎯 Capturar vista`**.
+     * **Auto-captura inteligente**: si se inicia la construcción sin BBox, la interfaz ofrece capturar automáticamente la pantalla visible actual para proteger el rendimiento y evitar fallos por extractos masivos.
+     * **Selector de Tipos de Vía para Ruteo**: presets con un clic (**Vehicular Estándar**, **SherpaSlb**, **Principales**) y advertencias contextuales al incluir vías no vehiculares.
+     * **Consola de ejecución en vivo**: streaming de avance continuo cada 2M de elementos procesados.
+  2. **🗺️ Capas & Filtros**:
+     * **Click-to-Strike (Tachar para descartar)**: toca cualquier vía o casilla de verificación para tacharla (`line-through`) y descartarla del mapa en tiempo real.
+     * **Modos de visualización**:
+       * *Por Tipo de Vía*: colores normalizados según la jerarquía vial de OpenStreetMap.
+       * *Por Sentido de Circulación*: flechas direccionales en vías de sentido único (`▸▸`, zoom ≥ 12) y trazo doble sólido en vías de doble sentido (`⇄`).
+     * **Límites de Red**: demarcación luminosa del perímetro geográfico exacto con dimensiones en km y área en km².
+     * **Estilos de Mapa Base**:
+       * **Google Hybrid (por defecto)**: ortofoto satelital combinada con etiquetas de calles, ciudades y carreteras.
+       * **Esri World Imagery**: fotografía satelital de alta resolución limpia.
+       * **CartoDB Dark & Positron**: mapas vectoriales de alto contraste para análisis nocturno y diurno.
+       * Atribución y normas de uso oficiales integradas (ODbL, Geofabrik, Google, Esri).
+  3. **📊 Métricas & Calidad**:
+     * Tarjetas KPI de longitud total en km, cantidad de micro-segmentos, nodos topológicos y componentes conexas.
+     * Alcance territorial con botón de centrado automático (`Centrar área ↗`).
+     * Distribución kilométrica por tipo de vía con barras de porcentaje interactivas (también compatibles con **Click-to-Strike** para filtrar el mapa).
+     * Tiempos de procesamiento desglosados y auditoría de calidad.
+  4. **⚖️ Paridad**:
+     * Reporte visual del diff contra la base de datos de producción (`.parity.json`), indicando segmentos coincidentes, modificados y retirados.
+  5. **📁 Carpetas del Sistema**:
+     * Panel con rutas físicas reales del proyecto y botones de un clic para **abrir en el Explorador de Windows** tanto la carpeta de descargas (`downloads\`) como la carpeta de salida (`output\`).
+
+* ⏳ **Modal de Proceso en Segundo Plano**:
+  * Durante descargas o compilación de redes, la interfaz presenta una barra animada y consola en tiempo real.
+  * Incluye el botón **`👀 Ver mapa`** para minimizar el modal a una pastilla flotante sin interrumpir la tarea, permitiendo inspeccionar el mapa o la consola libremente.
+
+---
+
+### 2. Especificaciones de Tipos de Vías para Ruteo Vehicular
+
+Al generar la red vial (`build`), es crucial definir qué vías deben formar parte del grafo ruteable para que los algoritmos de ruteo (Dijkstra, A*, Contraction Hierarchies, etc.) no generen rutas inviables o atajos peligrosos.
+
+| Vía OSM | Etiqueta | Preset SherpaSlb | Preset Vehicular Estricto | Recomendación para Ruteo |
+|---|---|:---:|:---:|---|
+| **`motorway`** | Autopista | ✅ Sí | ✅ Sí | Vías de alta velocidad y acceso controlado. Tránsito vehicular prioritario. |
+| **`trunk`** | Vía Troncal | ✅ Sí | ✅ Sí | Carreteras de alta capacidad intermunicipales o vías rápidas urbanas. |
+| **`primary`** | Vía Primaria | ✅ Sí | ✅ Sí | Red vial primaria nacional o avenidas arteriales urbanas. |
+| **`secondary`** | Vía Secundaria | ✅ Sí | ✅ Sí | Rutas conectoras secundarias entre municipios o barrios. |
+| **`tertiary`** | Vía Terciaria | ✅ Sí | ✅ Sí | Calles colectoras intermedias de tránsito público fluido. |
+| **`residential`** | Residencial | ✅ Sí | ✅ Sí | Calles urbanas habitacionales de libre circulación vehicular. |
+| **`unclassified`** | Rural / Menor | ✅ Sí | ✅ Sí | Vías rurales o menores transitables para automóviles y camiones. |
+| **`service`** | Vía de Servicio | ✅ Sí | ❌ Excluido | **Atención:** Incluye callejones, accesos a parqueaderos, servidumbres y caminos internos de condominios. En ruteo estricto se descarta para evitar que el algoritmo ataje por propiedad privada. |
+| **`track`** | Pista / Huella | ✅ Sí | ❌ Excluido | **Atención:** Caminos de tierra, trochas o caminos agrícolas. Inadecuados para vehículos de ciudad o transporte de carga estándar. |
+| **`*_link`** | Rampas / Enlaces | Opcional | Opcional | Rampas de acceso y orejas de retorno para autopistas y troncales (`motorway_link`, `trunk_link`, etc.). |
+| **`living_street`**| Zona 30 / Callejón | Opcional | Opcional | Calles con prioridad peatonal absoluta y restricción estricta de velocidad. |
+
+---
+
+### 3. Ejecución por Consola (CLI / Automatización)
 Para pipelines desatendidos o scripts de CI/CD:
 
 ```powershell

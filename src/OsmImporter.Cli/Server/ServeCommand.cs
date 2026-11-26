@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
+using System.Net.NetworkInformation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
@@ -59,7 +60,8 @@ public static class ServeCommand
   public static async Task<int> ExecuteAsync(ParsedArgs args, CancellationToken ct)
   {
     var port = args.GetInt("port") ?? 5000;
-    var outputDir = Path.GetFullPath(args.Get("dir") ?? "output");
+    var outputDir = ResolveDirectory("output", args.Get("dir"), "*.gpkg");
+    var downloadsDir = ResolveDirectory("downloads", null, "*.pbf");
     var noBrowser = args.Flag("no-browser");
     var explicitGpkg = args.Get("gpkg");
 
@@ -85,6 +87,13 @@ public static class ServeCommand
       selectedGpkg = available[0].FullPath;
     }
 
+    // Verificar y liberar puerto si está ocupado por una instancia previa de osmimport
+    var portOk = await EnsurePortAvailableAsync(port, ct);
+    if (!portOk)
+    {
+      return 1;
+    }
+
     // Configurar WebApplication
     var builder = WebApplication.CreateBuilder();
     builder.Logging.ClearProviders(); // Evitar ruido en la consola
@@ -92,16 +101,8 @@ public static class ServeCommand
     var app = builder.Build();
     app.Urls.Add($"http://127.0.0.1:{port}");
 
-    // Servir archivos estáticos desde wwwroot (ubicación local en src o carpeta dist)
-    var baseDir = AppContext.BaseDirectory;
-    var possibleWwwRoots = new[]
-    {
-      Path.Combine(baseDir, "wwwroot"),
-      Path.Combine(Directory.GetCurrentDirectory(), "src", "OsmImporter.Cli", "wwwroot"),
-      Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")
-    };
-
-    string? wwwroot = possibleWwwRoots.FirstOrDefault(Directory.Exists);
+    // Servir archivos estáticos desde wwwroot (resolviendo la versión más reciente y evitando caché)
+    string? wwwroot = ResolveWwwRoot();
 
     if (wwwroot != null)
     {
@@ -111,7 +112,13 @@ public static class ServeCommand
       });
       app.UseStaticFiles(new StaticFileOptions
       {
-        FileProvider = new PhysicalFileProvider(wwwroot)
+        FileProvider = new PhysicalFileProvider(wwwroot),
+        OnPrepareResponse = ctx =>
+        {
+          ctx.Context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+          ctx.Context.Response.Headers["Pragma"] = "no-cache";
+          ctx.Context.Response.Headers["Expires"] = "0";
+        }
       });
     }
 
@@ -245,7 +252,7 @@ public static class ServeCommand
     // Abrir carpeta en el Explorador de Windows
     app.MapPost("/api/open-folder", (string? folder) =>
     {
-      var target = folder == "output" ? outputDir : Path.GetFullPath("downloads");
+      var target = folder == "output" ? outputDir : downloadsDir;
       if (!Directory.Exists(target)) Directory.CreateDirectory(target);
       try
       {
@@ -261,7 +268,6 @@ public static class ServeCommand
     // Archivos descargados localmente (.osm.pbf)
     app.MapGet("/api/downloads", () =>
     {
-      var downloadsDir = Path.GetFullPath("downloads");
       if (!Directory.Exists(downloadsDir)) Directory.CreateDirectory(downloadsDir);
 
       var allFiles = new List<object>();
@@ -328,7 +334,7 @@ public static class ServeCommand
         try
         {
           Log.Step($"Descarga iniciada desde la WebUI para '{req.Region}'");
-          var path = await Geofabrik.DownloadAsync(req.Region, "downloads", req.Force, CancellationToken.None);
+          var path = await Geofabrik.DownloadAsync(req.Region, downloadsDir, req.Force, CancellationToken.None);
           Log.Step($"Descarga completada con éxito: {path}");
           lock (JobLock)
           {
@@ -354,15 +360,23 @@ public static class ServeCommand
     // Listar perfiles disponibles
     app.MapGet("/api/profiles", () =>
     {
-      var dirs = new[]
+      var candidateRoots = new List<string> { Directory.GetCurrentDirectory(), AppContext.BaseDirectory };
+      for (int i = 1; i <= 3; i++)
       {
-        Path.Combine(AppContext.BaseDirectory, "profiles"),
-        Path.Combine(Directory.GetCurrentDirectory(), "profiles")
-      };
+        var rel = string.Join(Path.DirectorySeparatorChar, Enumerable.Repeat("..", i));
+        candidateRoots.Add(Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), rel)));
+        candidateRoots.Add(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, rel)));
+      }
+
+      var dirs = candidateRoots
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Select(r => Path.Combine(r, "profiles"))
+        .Where(Directory.Exists)
+        .ToList();
+
       var found = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
       foreach (var d in dirs)
       {
-        if (!Directory.Exists(d)) continue;
         foreach (var f in Directory.GetFiles(d, "*.json"))
         {
           var name = Path.GetFileNameWithoutExtension(f);
@@ -399,17 +413,35 @@ public static class ServeCommand
       if (string.IsNullOrWhiteSpace(req.Pbf))
         return Results.BadRequest(new { error = "Se requiere la ruta o nombre del archivo .pbf" });
 
-      var pbfPath = req.Pbf;
-      if (!File.Exists(pbfPath))
+      var pbfCandidate = req.Pbf;
+      var possiblePbfPaths = new[]
       {
-        var inDownloads = Path.Combine("downloads", pbfPath);
-        if (File.Exists(inDownloads)) pbfPath = inDownloads;
-        else
-        {
-          var userDownloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", pbfPath);
-          if (File.Exists(userDownloads)) pbfPath = userDownloads;
-          else return Results.BadRequest(new { error = $"No se encontró el archivo: {req.Pbf}" });
-        }
+        pbfCandidate,
+        Path.Combine(downloadsDir, pbfCandidate),
+        Path.Combine("downloads", pbfCandidate),
+        Path.Combine(AppContext.BaseDirectory, "downloads", pbfCandidate),
+        Path.Combine(AppContext.BaseDirectory, "..", "downloads", pbfCandidate),
+        Path.Combine(Directory.GetCurrentDirectory(), "downloads", pbfCandidate),
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", pbfCandidate)
+      };
+      var pbfPath = possiblePbfPaths.FirstOrDefault(File.Exists);
+      if (string.IsNullOrEmpty(pbfPath))
+      {
+        return Results.BadRequest(new { error = $"No se encontró el archivo: {req.Pbf}" });
+      }
+
+      var (profile, _) = Profile.LoadOrDefault(req.Profile);
+      var options = profile.Build;
+      if (req.Bbox != null)
+      {
+        options.BBox = new BoundingBox(req.Bbox.MinLon, req.Bbox.MinLat, req.Bbox.MaxLon, req.Bbox.MaxLat);
+      }
+      if (req.BufferMeters.HasValue) options.BufferMeters = req.BufferMeters.Value;
+      if (req.Highways != null && req.Highways.Count > 0) options.Highways = req.Highways;
+
+      if (options.BBox == null)
+      {
+        return Results.BadRequest(new { error = "Se requiere delimitar un área geográfica (Bounding Box). Usa '✏️ Dibujar área' o '🎯 Capturar vista' en el mapa antes de iniciar la construcción." });
       }
 
       lock (JobLock)
@@ -426,15 +458,6 @@ public static class ServeCommand
         CurrentJob.ResultFile = null;
         CurrentJob.StartedAt = DateTime.UtcNow;
       }
-
-      var (profile, _) = Profile.LoadOrDefault(req.Profile);
-      var options = profile.Build;
-      if (req.Bbox != null)
-      {
-        options.BBox = new BoundingBox(req.Bbox.MinLon, req.Bbox.MinLat, req.Bbox.MaxLon, req.Bbox.MaxLat);
-      }
-      if (req.BufferMeters.HasValue) options.BufferMeters = req.BufferMeters.Value;
-      if (req.Highways != null && req.Highways.Count > 0) options.Highways = req.Highways;
 
       var outName = req.OutName;
       if (string.IsNullOrWhiteSpace(outName))
@@ -486,6 +509,10 @@ public static class ServeCommand
 
     app.MapFallback(async (HttpContext context) =>
     {
+      context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+      context.Response.Headers["Pragma"] = "no-cache";
+      context.Response.Headers["Expires"] = "0";
+
       if (wwwroot != null)
       {
         var indexPath = Path.Combine(wwwroot, "index.html");
@@ -509,10 +536,30 @@ public static class ServeCommand
     }
     catch (Exception ex)
     {
+      if (ex.Message.Contains("address already in use", StringComparison.OrdinalIgnoreCase) ||
+          ex.InnerException?.Message.Contains("address already in use", StringComparison.OrdinalIgnoreCase) == true)
+      {
+        Log.Warn($"El puerto {port} fue ocupado mientras iniciaba. Reintentando verificar proceso...");
+        if (await EnsurePortAvailableAsync(port, ct))
+        {
+          try
+          {
+            await app.StartAsync(ct);
+            goto ServerStarted;
+          }
+          catch (Exception retryEx)
+          {
+            Log.Error($"No se pudo iniciar el servidor web en el puerto {port}: {retryEx.Message}");
+            return 1;
+          }
+        }
+      }
+
       Log.Error($"No se pudo iniciar el servidor web en el puerto {port}: {ex.Message}");
       return 1;
     }
 
+ServerStarted:
     var rule = new Rule("[bold green]osmimport — Visor Web Activo[/]").LeftJustified();
     AnsiConsole.Write(rule);
     AnsiConsole.MarkupLine($"[bold]URL:[/]        [link={url}]{url}[/]");
@@ -549,5 +596,364 @@ public static class ServeCommand
     AnsiConsole.MarkupLine("[yellow]Deteniendo servidor web...[/]");
     await app.StopAsync(CancellationToken.None);
     return 0;
+  }
+
+  private static async Task<bool> EnsurePortAvailableAsync(int port, CancellationToken ct)
+  {
+    var (inUse, pid, processName) = CheckPortUsage(port);
+    if (!inUse) return true;
+
+    if (!pid.HasValue)
+    {
+      Log.Warn($"El puerto {port} parece estar en uso, pero no se pudo determinar el PID del proceso.");
+      return true;
+    }
+
+    try
+    {
+      using var proc = Process.GetProcessById(pid.Value);
+      if (IsOurApplication(proc))
+      {
+        Log.Warn($"El puerto {port} está ocupado por una instancia previa de osmimport (PID {pid}: '{proc.ProcessName}').");
+        Log.Info("Liberando el puerto automáticamente para iniciar el visor web...");
+        try
+        {
+          proc.Kill(entireProcessTree: true);
+          using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+          await proc.WaitForExitAsync(timeoutCts.Token);
+        }
+        catch
+        {
+          // El proceso ya terminó
+        }
+
+        // Esperar brevemente a que el sistema operativo libere el socket TCP
+        for (int i = 0; i < 20; i++)
+        {
+          await Task.Delay(100, ct);
+          var (stillInUse, _, _) = CheckPortUsage(port);
+          if (!stillInUse)
+          {
+            Log.Info($"Instancia anterior finalizada. Puerto {port} disponible.");
+            return true;
+          }
+        }
+        return true;
+      }
+      else
+      {
+        Log.Error($"No se puede iniciar el servidor web: el puerto {port} está ocupado por otro proceso del sistema: '{proc.ProcessName}' (PID {pid}).");
+        Log.Error($"Por favor cierra esa aplicación o ejecuta osmimport serve con '--port <otro_puerto>'.");
+        return false;
+      }
+    }
+    catch (ArgumentException)
+    {
+      // El proceso ya no existe
+      return true;
+    }
+    catch (Exception ex)
+    {
+      Log.Warn($"No se pudo verificar el proceso en el puerto {port}: {ex.Message}");
+      return true;
+    }
+  }
+
+  private static (bool InUse, int? Pid, string? ProcessName) CheckPortUsage(int port)
+  {
+    try
+    {
+      var listeners = IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners();
+      bool anyListener = listeners.Any(ep => ep.Port == port);
+      if (!anyListener)
+      {
+        return (false, null, null);
+      }
+
+      int? pid = FindProcessIdUsingPort(port);
+      if (pid.HasValue)
+      {
+        try
+        {
+          var p = Process.GetProcessById(pid.Value);
+          return (true, pid, p.ProcessName);
+        }
+        catch
+        {
+          return (true, pid, null);
+        }
+      }
+
+      return (true, null, null);
+    }
+    catch
+    {
+      return (false, null, null);
+    }
+  }
+
+  private static int? FindProcessIdUsingPort(int port)
+  {
+    if (OperatingSystem.IsWindows())
+    {
+      return FindProcessIdUsingPortWindows(port);
+    }
+    else
+    {
+      return FindProcessIdUsingPortUnix(port);
+    }
+  }
+
+  private static int? FindProcessIdUsingPortWindows(int port)
+  {
+    try
+    {
+      var psi = new ProcessStartInfo
+      {
+        FileName = "netstat.exe",
+        Arguments = "-ano -p tcp",
+        RedirectStandardOutput = true,
+        UseShellExecute = false,
+        CreateNoWindow = true
+      };
+      using var proc = Process.Start(psi);
+      if (proc == null) return null;
+      string output = proc.StandardOutput.ReadToEnd();
+      proc.WaitForExit(3000);
+
+      var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+      foreach (var line in lines)
+      {
+        var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 4 && parts[0].Equals("TCP", StringComparison.OrdinalIgnoreCase))
+        {
+          var localAddress = parts[1];
+          var state = parts[parts.Length - 2];
+          var pidStr = parts[parts.Length - 1];
+
+          if (state.Equals("LISTENING", StringComparison.OrdinalIgnoreCase) &&
+              (localAddress.EndsWith($":{port}", StringComparison.OrdinalIgnoreCase) ||
+               localAddress.EndsWith($"]:{port}", StringComparison.OrdinalIgnoreCase)))
+          {
+            if (int.TryParse(pidStr, out var pid) && pid > 0)
+            {
+              return pid;
+            }
+          }
+        }
+      }
+    }
+    catch
+    {
+    }
+    return null;
+  }
+
+  private static int? FindProcessIdUsingPortUnix(int port)
+  {
+    try
+    {
+      var psi = new ProcessStartInfo
+      {
+        FileName = "lsof",
+        Arguments = $"-t -i:{port}",
+        RedirectStandardOutput = true,
+        UseShellExecute = false,
+        CreateNoWindow = true
+      };
+      using var proc = Process.Start(psi);
+      if (proc == null) return null;
+      string output = proc.StandardOutput.ReadToEnd().Trim();
+      proc.WaitForExit(3000);
+
+      var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+      if (lines.Length > 0 && int.TryParse(lines[0], out var pid) && pid > 0)
+      {
+        return pid;
+      }
+    }
+    catch
+    {
+    }
+    return null;
+  }
+
+  private static bool IsOurApplication(Process proc)
+  {
+    try
+    {
+      var currentProc = Process.GetCurrentProcess();
+      if (proc.Id == currentProc.Id) return false;
+
+      string name = proc.ProcessName.ToLowerInvariant();
+      if (name.Contains("osmimport")) return true;
+
+      if (name.Contains("dotnet"))
+      {
+        if (OperatingSystem.IsWindows())
+        {
+          var cmdLine = GetProcessCommandLineWindows(proc.Id);
+          if (!string.IsNullOrEmpty(cmdLine) && cmdLine.Contains("osmimport", StringComparison.OrdinalIgnoreCase))
+          {
+            return true;
+          }
+        }
+      }
+
+      try
+      {
+        var mainModule = proc.MainModule?.FileName ?? "";
+        if (mainModule.Contains("osmimport", StringComparison.OrdinalIgnoreCase))
+          return true;
+      }
+      catch
+      {
+      }
+    }
+    catch
+    {
+    }
+    return false;
+  }
+
+  private static string? GetProcessCommandLineWindows(int pid)
+  {
+    try
+    {
+      var psi = new ProcessStartInfo
+      {
+        FileName = "powershell.exe",
+        Arguments = $"-NoProfile -NonInteractive -Command \"(Get-CimInstance Win32_Process -Filter 'ProcessId = {pid}').CommandLine\"",
+        RedirectStandardOutput = true,
+        UseShellExecute = false,
+        CreateNoWindow = true
+      };
+      using var p = Process.Start(psi);
+      if (p == null) return null;
+      string output = p.StandardOutput.ReadToEnd().Trim();
+      p.WaitForExit(2000);
+      return output;
+    }
+    catch
+    {
+      return null;
+    }
+  }
+
+  private static string ResolveDirectory(string folderName, string? userSpecified = null, string? fileFilter = null)
+  {
+    if (!string.IsNullOrWhiteSpace(userSpecified))
+    {
+      var explicitPath = Path.GetFullPath(userSpecified);
+      if (!Directory.Exists(explicitPath))
+      {
+        Directory.CreateDirectory(explicitPath);
+      }
+      return explicitPath;
+    }
+
+    var baseDir = AppContext.BaseDirectory;
+    var currentDir = Directory.GetCurrentDirectory();
+
+    var candidateRoots = new List<string> { currentDir, baseDir };
+    for (int i = 1; i <= 3; i++)
+    {
+      var rel = string.Join(Path.DirectorySeparatorChar, Enumerable.Repeat("..", i));
+      candidateRoots.Add(Path.GetFullPath(Path.Combine(currentDir, rel)));
+      candidateRoots.Add(Path.GetFullPath(Path.Combine(baseDir, rel)));
+    }
+
+    var distinctRoots = candidateRoots.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+    var candidateDirs = distinctRoots
+      .Select(root => Path.Combine(root, folderName))
+      .Distinct(StringComparer.OrdinalIgnoreCase)
+      .ToList();
+
+    // 1. Priorizar aquel directorio que exista y contenga archivos según el filtro (ej. *.gpkg, *.pbf)
+    if (!string.IsNullOrEmpty(fileFilter))
+    {
+      foreach (var cand in candidateDirs)
+      {
+        if (Directory.Exists(cand))
+        {
+          try
+          {
+            if (Directory.EnumerateFiles(cand, fileFilter).Any())
+            {
+              return cand;
+            }
+          }
+          catch { }
+        }
+      }
+    }
+
+    // 2. Si ninguno tiene archivos que coincidan, usar el primer directorio que exista físicamente
+    foreach (var cand in candidateDirs)
+    {
+      if (Directory.Exists(cand))
+      {
+        return cand;
+      }
+    }
+
+    // 3. Fallback: usar en el directorio de trabajo actual y crearlo si no existe
+    var defaultDir = Path.GetFullPath(Path.Combine(currentDir, folderName));
+    if (!Directory.Exists(defaultDir))
+    {
+      Directory.CreateDirectory(defaultDir);
+    }
+    return defaultDir;
+  }
+
+  private static string? ResolveWwwRoot()
+  {
+    var baseDir = AppContext.BaseDirectory;
+    var currentDir = Directory.GetCurrentDirectory();
+
+    var candidateRoots = new List<string> { currentDir, baseDir };
+    for (int i = 1; i <= 3; i++)
+    {
+      var rel = string.Join(Path.DirectorySeparatorChar, Enumerable.Repeat("..", i));
+      candidateRoots.Add(Path.GetFullPath(Path.Combine(currentDir, rel)));
+      candidateRoots.Add(Path.GetFullPath(Path.Combine(baseDir, rel)));
+    }
+
+    var candidates = new List<string>();
+    foreach (var root in candidateRoots.Distinct(StringComparer.OrdinalIgnoreCase))
+    {
+      candidates.Add(Path.Combine(root, "src", "OsmImporter.Cli", "wwwroot"));
+      candidates.Add(Path.Combine(root, "wwwroot"));
+    }
+
+    var valid = candidates
+      .Distinct(StringComparer.OrdinalIgnoreCase)
+      .Where(d => Directory.Exists(d) && File.Exists(Path.Combine(d, "index.html")))
+      .ToList();
+
+    if (valid.Count == 0) return null;
+
+    // Si encontramos una versión más nueva de index.html (ej. editada en src/), sincronizar con baseDir/wwwroot si existe
+    var best = valid
+      .OrderByDescending(d => File.GetLastWriteTimeUtc(Path.Combine(d, "index.html")))
+      .First();
+
+    try
+    {
+      var baseWwwRoot = Path.Combine(baseDir, "wwwroot");
+      if (Directory.Exists(baseWwwRoot) && !string.Equals(best, baseWwwRoot, StringComparison.OrdinalIgnoreCase))
+      {
+        var srcIndex = Path.Combine(best, "index.html");
+        var destIndex = Path.Combine(baseWwwRoot, "index.html");
+        if (File.Exists(srcIndex) && File.GetLastWriteTimeUtc(srcIndex) > File.GetLastWriteTimeUtc(destIndex))
+        {
+          File.Copy(srcIndex, destIndex, overwrite: true);
+        }
+      }
+    }
+    catch { }
+
+    return best;
   }
 }

@@ -73,7 +73,7 @@ public sealed class PbfReadResult
 /// </summary>
 public static class PbfRoadReader
 {
-  private const int ProgressEvery = 5_000_000;
+  private const int ProgressEvery = 2_000_000;
 
   public static PbfReadResult Read(string pbfPath, CancellationToken ct = default)
   {
@@ -100,7 +100,7 @@ public static class PbfRoadReader
         if (++elements % ProgressEvery == 0)
         {
           ct.ThrowIfCancellationRequested();
-          Log.Debug($"  pasada 1: {elements:N0} elementos, {ways.Count:N0} vías highway");
+          Log.Info($"  pasada 1: {elements:N0} elementos, {ways.Count:N0} vías highway");
         }
 
         if (geo.Type == OsmGeoType.Relation)
@@ -210,7 +210,7 @@ public static class PbfRoadReader
         if (++nodesScanned % ProgressEvery == 0)
         {
           ct.ThrowIfCancellationRequested();
-          Log.Debug($"  pasada 2: {nodesScanned:N0} nodos, {found:N0} requeridos encontrados");
+          Log.Info($"  pasada 2: {nodesScanned:N0} nodos, {found:N0} requeridos encontrados");
         }
 
         var node = (Node)geo;
