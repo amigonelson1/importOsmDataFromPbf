@@ -200,6 +200,53 @@
         </svg>
         <span class="hidden sm:inline">Panel</span>
       </button>
+
+      <!-- Menú Bento de Aplicaciones/Herramientas (9 puntos estilo Google) -->
+      <div class="relative flex-shrink-0">
+        <button id="btnToolsMenu"
+          type="button"
+          title="Herramientas y Funcionalidades avanzadas de la red"
+          class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-emerald-500/60 p-2 rounded-lg text-xs font-medium transition flex items-center justify-center cursor-pointer shadow-sm">
+          <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="5" r="2.2" />
+            <circle cx="12" cy="5" r="2.2" />
+            <circle cx="19" cy="5" r="2.2" />
+            <circle cx="5" cy="12" r="2.2" />
+            <circle cx="12" cy="12" r="2.2" />
+            <circle cx="19" cy="12" r="2.2" />
+            <circle cx="5" cy="19" r="2.2" />
+            <circle cx="12" cy="19" r="2.2" />
+            <circle cx="19" cy="19" r="2.2" />
+          </svg>
+        </button>
+
+        <!-- Dropdown Desplegable del Menú Bento -->
+        <div id="toolsMenuDropdown"
+          class="hidden absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl p-2 z-50 backdrop-blur-xl">
+          <div class="px-2.5 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 flex items-center justify-between">
+            <span>Herramientas de Red</span>
+            <span class="text-emerald-400 bg-emerald-950/70 border border-emerald-800/60 px-1.5 py-0.2 rounded text-[10px]">Studio</span>
+          </div>
+          <div class="py-1">
+            <button id="btnOpenEditDirections"
+              type="button"
+              class="w-full text-left p-2.5 rounded-lg hover:bg-slate-800/90 transition flex items-start gap-3 group cursor-pointer">
+              <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-500/30 transition text-base">
+                ✏️
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-semibold text-white group-hover:text-emerald-300 transition flex items-center justify-between">
+                  <span>Editar Sentidos Viales</span>
+                  <span id="badgeEditModeStatus" class="text-[10px] text-slate-400 font-normal">Inactivo</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                  Cambiar sentido o volver doble vía tramos vehiculares entre esquinas.
+                </p>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -219,6 +266,96 @@
         </path>
       </svg>
       <span>Actualizando mapa...</span>
+    </div>
+
+    <!-- Barra Flotante de Modo Edición de Sentidos Activo -->
+    <div id="editModeBar"
+      class="hidden absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-slate-900/95 border border-emerald-500/70 shadow-2xl rounded-2xl px-4 py-2.5 backdrop-blur-xl flex items-center gap-3 max-w-[calc(100vw-2rem)]">
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span class="text-xs font-bold text-white tracking-wide">MODO EDICIÓN DE SENTIDOS</span>
+      </div>
+      <div class="h-4 w-[1px] bg-slate-700 hidden sm:block"></div>
+      <span id="editModeHint" class="text-xs text-slate-300 hidden sm:inline truncate">
+        Toca cualquier tramo vehicular en el mapa para editarlo.
+      </span>
+      <button id="btnExitEditMode"
+        type="button"
+        class="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer flex-shrink-0">
+        ✕ Salir
+      </button>
+    </div>
+
+    <!-- Panel Flotante de Control del Tramo Seleccionado -->
+    <div id="blockEditPanel"
+      class="hidden absolute bottom-6 left-1/2 -translate-x-1/2 z-30 w-[440px] max-w-[calc(100vw-2rem)] bg-slate-900/95 border border-slate-700/90 rounded-2xl p-4 shadow-2xl backdrop-blur-xl space-y-3">
+      <!-- Encabezado de la vía -->
+      <div class="flex items-start justify-between gap-2 border-b border-slate-800 pb-2">
+        <div class="min-w-0">
+          <h4 id="editStreetName" class="font-bold text-sm text-white truncate">Calle sin nombre</h4>
+          <div class="flex items-center gap-2 mt-0.5">
+            <span id="editStreetHighway"
+              class="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 uppercase">
+              RESIDENTIAL
+            </span>
+            <span id="editStreetLength" class="text-[11px] text-slate-400 font-mono">-- m</span>
+            <span id="editStreetSegmentsCount" class="text-[11px] text-slate-400 font-mono">(-- segmentos)</span>
+          </div>
+        </div>
+        <button id="btnDeselectBlock" title="Liberar selección de este tramo"
+          type="button"
+          class="text-slate-400 hover:text-white p-1 rounded transition text-xs cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <!-- Estado actual y botón único cíclico de sentido -->
+      <div class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <span class="text-[11px] text-slate-400 block font-medium">Sentido Configurado:</span>
+          <div id="editDirectionLabel" class="font-bold text-xs text-emerald-400 flex items-center gap-1.5 mt-0.5">
+            <span>Doble Vía ⇄ (Bidireccional)</span>
+          </div>
+        </div>
+
+        <!-- Botón único para ciclar el sentido -->
+        <button id="btnCycleDirection"
+          type="button"
+          class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3.5 py-2 rounded-xl text-xs transition shadow-md flex items-center gap-1.5 flex-shrink-0 cursor-pointer">
+          <span class="text-sm">🔄</span>
+          <span id="btnCycleDirectionText">Cambiar Sentido</span>
+        </button>
+      </div>
+
+      <!-- Aviso cuando la selección está bloqueada por cambios pendientes -->
+      <div id="editPendingWarning"
+        class="hidden text-[11px] text-amber-300 bg-amber-950/60 border border-amber-800/60 rounded-xl p-2.5 flex items-center gap-2">
+        <span class="text-base flex-shrink-0">⚠️</span>
+        <span class="leading-tight">Tienes cambios pendientes. Confirma o descarta para poder seleccionar otro tramo.</span>
+      </div>
+
+      <!-- Botones de Acción: Descartar y Guardar (aparecen solo al modificar) -->
+      <div id="editActionButtons" class="hidden flex items-center gap-2 pt-1">
+        <button id="btnDiscardChanges"
+          type="button"
+          class="flex-1 bg-slate-800 hover:bg-slate-700 text-rose-400 hover:text-rose-300 border border-slate-700 hover:border-rose-600/50 py-2.5 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer">
+          <span>✕</span>
+          <span>Descartar</span>
+        </button>
+        <button id="btnSaveChanges"
+          type="button"
+          class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950/50 cursor-pointer">
+          <span>💾</span>
+          <span>Guardar Cambios</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Toast flotante para avisos de vía no vehicular -->
+    <div id="toastVehicularOnly"
+      class="hidden absolute top-16 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 border border-amber-500/80 rounded-xl px-4 py-2.5 shadow-2xl text-xs text-amber-300 flex items-center gap-2.5 backdrop-blur-md transition-all">
+      <span class="text-base">🚫</span>
+      <span id="toastVehicularText">Solo se permite editar vías vehiculares (no ciclorutas, peatonales ni senderos).</span>
     </div>
 
     <!-- Banner flotante para Modo Selección de Área en el mapa -->
@@ -372,14 +509,33 @@
               <p class="text-slate-400 text-xs">Escribe un país o región para buscar...</p>
             </div>
 
-            <!-- Archivos ya descargados localmente -->
-            <div class="pt-2 border-t border-slate-700/50 space-y-2">
-              <div class="flex items-center justify-between text-xs sm:text-sm">
-                <span class="text-slate-300 font-medium">Archivos .pbf detectados:</span>
-                <button id="btnRefreshDownloads" class="text-indigo-400 hover:underline text-xs">Actualizar</button>
-              </div>
-              <div id="localPbfList" class="space-y-1 max-h-36 overflow-y-auto">
-                <p class="text-slate-500 text-xs">No hay archivos .pbf descargados</p>
+            <!-- Carpeta y archivos ya descargados localmente -->
+            <div class="pt-2 border-t border-slate-700/50 space-y-2.5">
+              <div class="bg-slate-900/90 border border-slate-700/70 rounded-xl p-3 space-y-2">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-slate-200 font-semibold flex items-center gap-1.5">
+                    <span>📥</span> Carpeta de Descargas PBF:
+                  </span>
+                  <button type="button" id="btnOpenDownloadsFolderBuild"
+                    title="Abrir la carpeta de descargas en el Explorador de Windows"
+                    class="btn-open-downloads-folder bg-indigo-950/90 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/70 px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1 cursor-pointer shadow-sm">
+                    <span>📂 Abrir Carpeta</span>
+                  </button>
+                </div>
+                <div id="downloadsPathDisplayBuild"
+                  title="Ruta física de almacenamiento de archivos PBF (haz clic para seleccionar)"
+                  class="font-mono text-indigo-300 text-[11px] break-all select-all bg-slate-950 p-2 rounded-lg border border-slate-800">
+                  D:\Desarrollos\importOsmDataFromPbf\downloads
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/60">
+                  <span>Archivos .pbf detectados en esta ruta:</span>
+                  <button type="button" id="btnRefreshDownloads" class="text-indigo-400 hover:text-indigo-300 hover:underline flex items-center gap-1 cursor-pointer">
+                    <span>🔄</span> Actualizar
+                  </button>
+                </div>
+                <div id="localPbfList" class="space-y-1 max-h-36 overflow-y-auto">
+                  <p class="text-slate-500 text-[11px]">No hay archivos .pbf en la carpeta de descargas</p>
+                </div>
               </div>
             </div>
           </div>
@@ -490,6 +646,28 @@
                   title="Nombre personalizado para el archivo .gpkg de salida (opcional)"
                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white focus:border-indigo-500 focus:outline-none font-mono" />
               </div>
+            </div>
+
+            <!-- Ruta y control de la carpeta de salida (generados) -->
+            <div class="bg-slate-900/90 border border-slate-700/70 rounded-xl p-3 space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-slate-200 font-semibold flex items-center gap-1.5">
+                  <span>📦</span> Carpeta de Generados (.gpkg):
+                </span>
+                <button type="button" id="btnOpenOutputFolderBuild"
+                  title="Abrir la carpeta de salida en el Explorador de Windows"
+                  class="btn-open-output-folder bg-emerald-950/90 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/70 px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1 cursor-pointer shadow-sm">
+                  <span>📂 Abrir Carpeta</span>
+                </button>
+              </div>
+              <div id="outputPathDisplayBuild"
+                title="Ruta física donde se guardan los archivos .gpkg generados (haz clic para seleccionar)"
+                class="font-mono text-emerald-400 text-[11px] break-all select-all bg-slate-950 p-2 rounded-lg border border-slate-800">
+                D:\Desarrollos\importOsmDataFromPbf\output
+              </div>
+              <p class="text-[10px] text-slate-400">
+                💡 Los archivos GeoPackage (.gpkg) generados y sus reportes se guardarán directamente en esta ruta.
+              </p>
             </div>
 
             <!-- Tipos de Vías a Incluir (Filtro de Ruteo) -->
@@ -726,6 +904,8 @@
               • <b>Mapas e imágenes base:</b> Google Maps (Híbrido) • Esri World Imagery (Satélite) • CARTO (Vectorial).
             </p>
           </div>
+        </div>
+
         <!-- Tab 3: Métricas -->
         <div id="tabMetrics" class="tab-pane hidden space-y-4">
           <!-- Ubicación física del archivo seleccionado y carpeta output -->
@@ -838,16 +1018,24 @@
                 <span>📥</span> Carpeta de descargas PBF
               </span>
               <button id="btnOpenDownloadsFolder"
-                class="bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 shadow-sm">
+                type="button"
+                class="btn-open-downloads-folder bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 shadow-sm cursor-pointer">
                 <span>📂 Abrir en Windows</span>
               </button>
             </div>
             <div
-              class="font-mono text-slate-300 text-xs break-all select-all bg-slate-950 p-2.5 rounded-lg border border-slate-800"
+              class="font-mono text-indigo-300 text-xs break-all select-all bg-slate-950 p-2.5 rounded-lg border border-slate-800"
               id="downloadsPathDisplay">
               D:\Desarrollos\importOsmDataFromPbf\downloads
             </div>
-            <p class="text-xs text-slate-400 leading-relaxed">
+            <!-- Lista compacta de PBFs en esta carpeta -->
+            <div class="space-y-1 pt-1 border-t border-slate-800/60">
+              <span class="text-[11px] text-slate-400 block font-medium">Archivos .pbf en esta carpeta:</span>
+              <div id="downloadsFolderFilesList" class="space-y-1 max-h-32 overflow-y-auto">
+                <p class="text-slate-500 text-[11px] italic">(Carpeta vacía - no hay archivos .pbf)</p>
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-relaxed">
               💡 Los archivos se descargan en la carpeta interna del proyecto (<code
                 class="text-indigo-300 font-mono">downloads\</code>). Puedes almacenar allí archivos .osm.pbf descargados manualmente o desde Geofabrik.
             </p>
@@ -860,7 +1048,8 @@
                 <span>📦</span> Carpeta de salida (.gpkg y reportes)
               </span>
               <button id="btnOpenOutputFolder"
-                class="bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/60 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 shadow-sm">
+                type="button"
+                class="btn-open-output-folder bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/60 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 shadow-sm cursor-pointer">
                 <span>📂 Abrir en Windows</span>
               </button>
             </div>
@@ -869,10 +1058,34 @@
               id="outputPathDisplay">
               D:\Desarrollos\importOsmDataFromPbf\output
             </div>
-            <p class="text-xs text-slate-400 leading-relaxed">
+            <!-- Lista compacta de GPKGs en esta carpeta -->
+            <div class="space-y-1 pt-1 border-t border-slate-800/60">
+              <span class="text-[11px] text-slate-400 block font-medium">Redes .gpkg en esta carpeta:</span>
+              <div id="outputFolderFilesList" class="space-y-1 max-h-32 overflow-y-auto">
+                <p class="text-slate-500 text-[11px] italic">(Carpeta vacía - no hay archivos .gpkg)</p>
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-relaxed">
               💡 Aquí quedan guardados los archivos generados. Puedes borrar su contenido cuando quieras para liberar
               espacio en disco; no afecta los PBF descargados.
             </p>
+          </div>
+
+          <!-- Banner de Descargas de Windows -->
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-3 text-xs space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400 font-medium flex items-center gap-1.5">
+                <span>💻</span> Carpeta Descargas de Windows (Navegador)
+              </span>
+              <button id="btnOpenUserDownloadsFolder"
+                type="button"
+                class="text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2 py-0.5 rounded text-[11px] transition cursor-pointer">
+                <span>📂 Abrir</span>
+              </button>
+            </div>
+            <div id="userDownloadsPathDisplay" class="font-mono text-slate-500 text-[11px] break-all select-all">
+              C:\Users\...\Downloads
+            </div>
           </div>
         </div>
 
@@ -1032,6 +1245,83 @@
         <button type="button" id="btnExecuteBuildConfirmed"
           class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow-md">
           <span>🚀 Confirmar e Iniciar Build</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE PRE-CONFIRMACIÓN PARA DESCARTAR CAMBIOS DE SENTIDO -->
+  <div id="modalDiscardChanges"
+    class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl max-w-md w-full p-5 space-y-4 text-left">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-xl flex-shrink-0">
+          ⚠️
+        </div>
+        <div>
+          <h3 class="text-sm font-bold text-white">¿Descartar los cambios realizados?</h3>
+          <p class="text-xs text-slate-400 mt-0.5">Se restablecerá el sentido original que tenía este tramo.</p>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+        <button id="btnCancelDiscardModal"
+          type="button"
+          class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 transition cursor-pointer">
+          Continuar Editando
+        </button>
+        <button id="btnConfirmDiscardModal"
+          type="button"
+          class="px-4 py-1.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition shadow-sm cursor-pointer">
+          Sí, Descartar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE PRE-CONFIRMACIÓN PARA GUARDAR CAMBIOS DE SENTIDO -->
+  <div id="modalSaveChanges"
+    class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl max-w-md w-full p-5 space-y-4 text-left">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl flex-shrink-0">
+          💾
+        </div>
+        <div>
+          <h3 class="text-sm font-bold text-white">Confirmar y Guardar Sentido Vial</h3>
+          <p class="text-xs text-slate-400 mt-0.5">Se actualizará la base de datos GeoPackage de esta red.</p>
+        </div>
+      </div>
+      
+      <div class="bg-slate-950/80 rounded-xl border border-slate-800 p-3 space-y-2 text-xs">
+        <div class="flex justify-between">
+          <span class="text-slate-400">Vía:</span>
+          <span id="saveModalStreetName" class="font-bold text-white text-right truncate max-w-[240px]">--</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-slate-400">Nuevo Sentido:</span>
+          <span id="saveModalDirection" class="font-bold text-emerald-400 text-right">--</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-400">Segmentos Afectados:</span>
+          <span id="saveModalSegmentCount" class="font-mono text-slate-200">--</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-400">Archivo de Red:</span>
+          <span id="saveModalGpkgName" class="font-mono text-slate-400 text-right truncate max-w-[220px]">--</span>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+        <button id="btnCancelSaveModal"
+          type="button"
+          class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 transition cursor-pointer">
+          Cancelar
+        </button>
+        <button id="btnConfirmSaveModal"
+          type="button"
+          class="px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm cursor-pointer flex items-center gap-1.5">
+          <span>💾</span>
+          <span>Confirmar y Guardar</span>
         </button>
       </div>
     </div>
@@ -1316,11 +1606,18 @@
         targetBtn.classList.remove('border-transparent', 'text-slate-400');
       }
 
-      if (tabId === 'metrics') document.getElementById('tabMetrics')?.classList.remove('hidden');
+      if (tabId === 'metrics') {
+        document.getElementById('tabMetrics')?.classList.remove('hidden');
+        if (activeGpkg) loadGpkgMetadata(activeGpkg);
+      }
       if (tabId === 'layers') document.getElementById('tabLayers')?.classList.remove('hidden');
       if (tabId === 'parity') document.getElementById('tabParity')?.classList.remove('hidden');
       if (tabId === 'build') document.getElementById('tabBuild')?.classList.remove('hidden');
-      if (tabId === 'folders') document.getElementById('tabFolders')?.classList.remove('hidden');
+      if (tabId === 'folders') {
+        document.getElementById('tabFolders')?.classList.remove('hidden');
+        fetchDownloadsList();
+        fetchGpkgFiles();
+      }
     }
 
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1989,14 +2286,22 @@
       interactionsInitialized = true;
 
       // Interacción: Popup al hacer click en un segmento o en sus flechas
-      map.on('click', 'segments-line', (e) => {
+      map.on('click', 'segments-line', async (e) => {
         if (isDrawingBbox) return;
         if (!e.features || !e.features[0]) return;
+        if (isEditModeActive) {
+          await handleSegmentEditClick(e.features[0]);
+          return;
+        }
         showSegmentPopup(e.features[0], e.lngLat);
       });
-      map.on('click', 'segments-oneway-arrows', (e) => {
+      map.on('click', 'segments-oneway-arrows', async (e) => {
         if (isDrawingBbox) return;
         if (!e.features || !e.features[0]) return;
+        if (isEditModeActive) {
+          await handleSegmentEditClick(e.features[0]);
+          return;
+        }
         showSegmentPopup(e.features[0], e.lngLat);
       });
 
@@ -2040,6 +2345,62 @@
       map.on('mouseleave', 'network-boundary-corners', () => { if (!isDrawingBbox) map.getCanvas().style.cursor = ''; });
     }
 
+    function updateOutputFolderDisplays(dirPath, files) {
+      if (!dirPath) return;
+      currentOutputDir = dirPath;
+      ['outputPathDisplay', 'outputPathDisplayBuild'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = dirPath;
+      });
+      const navBtn = document.getElementById('btnOpenOutputFolderNav');
+      if (navBtn) navBtn.title = `Abrir carpeta de salida en Windows: ${dirPath}`;
+
+      const listEl = document.getElementById('outputFolderFilesList');
+      if (listEl) {
+        listEl.innerHTML = '';
+        if (!files || files.length === 0) {
+          listEl.innerHTML = '<p class="text-slate-500 text-[11px] italic">(Carpeta vacía - no hay archivos .gpkg)</p>';
+        } else {
+          files.forEach(f => {
+            const item = document.createElement('div');
+            item.className = 'flex items-center justify-between bg-slate-950/60 px-2 py-1 rounded text-[11px] font-mono text-slate-300 border border-slate-800';
+            const mb = (f.sizeBytes / (1024 * 1024)).toFixed(1);
+            item.innerHTML = `<span class="truncate mr-2">${f.fileName}</span><span class="text-slate-500 flex-shrink-0">${mb} MB</span>`;
+            listEl.appendChild(item);
+          });
+        }
+      }
+    }
+
+    function updateDownloadsFolderDisplays(dirPath, userDir, files) {
+      if (dirPath) {
+        currentDownloadsDir = dirPath;
+        ['downloadsPathDisplay', 'downloadsPathDisplayBuild'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = dirPath;
+        });
+      }
+      if (userDir) {
+        const userEl = document.getElementById('userDownloadsPathDisplay');
+        if (userEl) userEl.textContent = userDir;
+      }
+
+      const listEl = document.getElementById('downloadsFolderFilesList');
+      if (listEl) {
+        listEl.innerHTML = '';
+        if (!files || files.length === 0) {
+          listEl.innerHTML = '<p class="text-slate-500 text-[11px] italic">(Carpeta vacía - no hay archivos .pbf)</p>';
+        } else {
+          files.forEach(f => {
+            const item = document.createElement('div');
+            item.className = 'flex items-center justify-between bg-slate-950/60 px-2 py-1 rounded text-[11px] font-mono text-slate-300 border border-slate-800';
+            item.innerHTML = `<span class="truncate mr-2">${f.fileName}</span><span class="text-slate-500 flex-shrink-0">${f.sizeMb} MB (${f.folderLabel || 'local'})</span>`;
+            listEl.appendChild(item);
+          });
+        }
+      }
+    }
+
     // Listar archivos GeoPackage disponibles
     async function fetchGpkgFiles() {
       try {
@@ -2049,14 +2410,11 @@
         availableFiles = data.files || [];
         currentOutputDir = data.outputDir || '';
 
-        const outputPathDisplay = document.getElementById('outputPathDisplay');
-        if (outputPathDisplay && currentOutputDir) {
-          outputPathDisplay.textContent = currentOutputDir;
-        }
+        updateOutputFolderDisplays(currentOutputDir, availableFiles);
 
         gpkgSelect.innerHTML = '';
         if (!data.files || data.files.length === 0) {
-          gpkgSelect.innerHTML = '<option value="">No hay archivos .gpkg en output/</option>';
+          gpkgSelect.innerHTML = '<option value="">(Sin archivos .gpkg en output/)</option>';
           const fileDisplay = document.getElementById('outputActiveFileDisplay');
           if (fileDisplay) fileDisplay.textContent = '(Sin archivos en output/)';
           activeGpkg = '';
@@ -2865,26 +3223,29 @@
     const liveConsole = document.getElementById('liveConsole');
     const btnClearLogs = document.getElementById('btnClearLogs');
 
-    // Abrir carpeta en Windows Explorer
-    btnOpenDownloadsFolder.addEventListener('click', async () => {
+    // Abrir carpetas en Windows Explorer
+    async function openFolder(folderType) {
       try {
-        await fetch('/api/open-folder', { method: 'POST' });
+        const url = folderType ? `/api/open-folder?folder=${encodeURIComponent(folderType)}` : '/api/open-folder';
+        await fetch(url, { method: 'POST' });
       } catch (err) {
-        console.error('Error al abrir carpeta de descargas:', err);
-      }
-    });
-
-    async function openOutputFolder() {
-      try {
-        await fetch('/api/open-folder?folder=output', { method: 'POST' });
-      } catch (err) {
-        console.error('Error al abrir carpeta output:', err);
+        console.error(`Error al abrir carpeta ${folderType}:`, err);
       }
     }
 
-    document.getElementById('btnOpenOutputFolder')?.addEventListener('click', openOutputFolder);
-    document.getElementById('btnOpenOutputFolderNav')?.addEventListener('click', openOutputFolder);
-    document.getElementById('btnOpenOutputFileFolder')?.addEventListener('click', openOutputFolder);
+    document.querySelectorAll('.btn-open-downloads-folder').forEach(btn => {
+      btn.addEventListener('click', () => openFolder('downloads'));
+    });
+    document.querySelectorAll('.btn-open-output-folder').forEach(btn => {
+      btn.addEventListener('click', () => openFolder('output'));
+    });
+    document.getElementById('btnOpenDownloadsFolder')?.addEventListener('click', () => openFolder('downloads'));
+    document.getElementById('btnOpenDownloadsFolderBuild')?.addEventListener('click', () => openFolder('downloads'));
+    document.getElementById('btnOpenOutputFolder')?.addEventListener('click', () => openFolder('output'));
+    document.getElementById('btnOpenOutputFolderBuild')?.addEventListener('click', () => openFolder('output'));
+    document.getElementById('btnOpenOutputFolderNav')?.addEventListener('click', () => openFolder('output'));
+    document.getElementById('btnOpenOutputFileFolder')?.addEventListener('click', () => openFolder('output'));
+    document.getElementById('btnOpenUserDownloadsFolder')?.addEventListener('click', () => openFolder('user-downloads'));
 
     // Buscar regiones en Geofabrik
     async function searchGeofabrikRegions() {
@@ -2971,39 +3332,43 @@
         const res = await fetch('/api/downloads');
         const data = await res.json();
 
-        if (data.downloadsDir) {
-          downloadsPathDisplay.textContent = data.downloadsDir;
-        }
-
         const files = data.files || [];
-        localPbfList.innerHTML = '';
-        if (files.length === 0) {
-          localPbfList.innerHTML = '<p class="text-slate-500 text-[11px]">No hay archivos .pbf descargados</p>';
-          return;
-        }
+        updateDownloadsFolderDisplays(data.downloadsDir, data.userDownloadsDir, files);
 
-        files.forEach(f => {
-          const item = document.createElement('div');
-          item.className = 'flex items-center justify-between bg-slate-900/60 p-1.5 rounded border border-slate-700/40 text-[11px]';
-          item.innerHTML = `
-            <div class="truncate mr-2">
-              <span class="text-slate-200 font-mono block truncate">${f.fileName}</span>
-              <span class="text-[10px] text-slate-400">${f.sizeMb} MB <span class="text-slate-600">(${f.folderLabel || 'local'})</span></span>
-            </div>
-            <button data-file="${f.fileName}" class="btn-use-pbf bg-slate-800 hover:bg-slate-700 text-emerald-400 font-medium px-2 py-0.5 rounded text-[10px] border border-slate-700 transition">
-              Usar
-            </button>
-          `;
-          localPbfList.appendChild(item);
-        });
+        const localPbfList = document.getElementById('localPbfList');
+        if (localPbfList) {
+          localPbfList.innerHTML = '';
+          if (files.length === 0) {
+            localPbfList.innerHTML = '<p class="text-slate-500 text-[11px] italic">No hay archivos .pbf en la carpeta de descargas</p>';
+            return;
+          }
 
-        document.querySelectorAll('.btn-use-pbf').forEach(btn => {
-          btn.addEventListener('click', () => {
-            buildPbfInput.value = btn.dataset.file;
-            buildPbfInput.classList.add('ring-2', 'ring-emerald-500');
-            setTimeout(() => buildPbfInput.classList.remove('ring-2', 'ring-emerald-500'), 1500);
+          files.forEach(f => {
+            const item = document.createElement('div');
+            item.className = 'flex items-center justify-between bg-slate-900/60 p-1.5 rounded border border-slate-700/40 text-[11px]';
+            item.innerHTML = `
+              <div class="truncate mr-2">
+                <span class="text-slate-200 font-mono block truncate">${f.fileName}</span>
+                <span class="text-[10px] text-slate-400">${f.sizeMb} MB <span class="text-slate-600">(${f.folderLabel || 'local'})</span></span>
+              </div>
+              <button data-file="${f.fileName}" class="btn-use-pbf bg-slate-800 hover:bg-slate-700 text-emerald-400 font-medium px-2 py-0.5 rounded text-[10px] border border-slate-700 transition cursor-pointer">
+                Usar
+              </button>
+            `;
+            localPbfList.appendChild(item);
           });
-        });
+
+          document.querySelectorAll('.btn-use-pbf').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const pbfInp = document.getElementById('buildPbfInput');
+              if (pbfInp) {
+                pbfInp.value = btn.dataset.file;
+                pbfInp.classList.add('ring-2', 'ring-emerald-500');
+                setTimeout(() => pbfInp.classList.remove('ring-2', 'ring-emerald-500'), 1500);
+              }
+            });
+          });
+        }
       } catch (err) {
         console.error('Error al listar descargas:', err);
       }
@@ -3665,6 +4030,458 @@
           }
         } catch { }
       }, 1000);
+    }
+
+    // =========================================================================
+    // MODO EDICIÓN TOPOLÓGICA DE SENTIDOS VIALES (BENTO MENU)
+    // =========================================================================
+    const btnToolsMenu = document.getElementById('btnToolsMenu');
+    const toolsMenuDropdown = document.getElementById('toolsMenuDropdown');
+    const btnOpenEditDirections = document.getElementById('btnOpenEditDirections');
+    const badgeEditModeStatus = document.getElementById('badgeEditModeStatus');
+    const editModeBar = document.getElementById('editModeBar');
+    const btnExitEditMode = document.getElementById('btnExitEditMode');
+    const blockEditPanel = document.getElementById('blockEditPanel');
+    const editStreetName = document.getElementById('editStreetName');
+    const editStreetHighway = document.getElementById('editStreetHighway');
+    const editStreetLength = document.getElementById('editStreetLength');
+    const editStreetSegmentsCount = document.getElementById('editStreetSegmentsCount');
+    const editDirectionLabel = document.getElementById('editDirectionLabel');
+    const btnCycleDirection = document.getElementById('btnCycleDirection');
+    const btnCycleDirectionText = document.getElementById('btnCycleDirectionText');
+    const editPendingWarning = document.getElementById('editPendingWarning');
+    const editActionButtons = document.getElementById('editActionButtons');
+    const btnDiscardChanges = document.getElementById('btnDiscardChanges');
+    const btnSaveChanges = document.getElementById('btnSaveChanges');
+    const btnDeselectBlock = document.getElementById('btnDeselectBlock');
+    const toastVehicularOnly = document.getElementById('toastVehicularOnly');
+    const toastVehicularText = document.getElementById('toastVehicularText');
+
+    // Modals
+    const modalDiscardChanges = document.getElementById('modalDiscardChanges');
+    const btnCancelDiscardModal = document.getElementById('btnCancelDiscardModal');
+    const btnConfirmDiscardModal = document.getElementById('btnConfirmDiscardModal');
+    const modalSaveChanges = document.getElementById('modalSaveChanges');
+    const btnCancelSaveModal = document.getElementById('btnCancelSaveModal');
+    const btnConfirmSaveModal = document.getElementById('btnConfirmSaveModal');
+    const saveModalStreetName = document.getElementById('saveModalStreetName');
+    const saveModalDirection = document.getElementById('saveModalDirection');
+    const saveModalSegmentCount = document.getElementById('saveModalSegmentCount');
+    const saveModalGpkgName = document.getElementById('saveModalGpkgName');
+
+    let isEditModeActive = false;
+    let selectedBlockData = null; // Respuesta del endpoint /api/segments/block
+    let originalDirectionState = null; // 'two-way' | 'forward' | 'reverse'
+    let currentDirectionState = null; // 'two-way' | 'forward' | 'reverse'
+    let hasPendingChanges = false;
+    let markerA = null;
+    let markerB = null;
+    let toastTimeout = null;
+
+    // Toggle Bento Menu Dropdown
+    if (btnToolsMenu && toolsMenuDropdown) {
+      btnToolsMenu.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toolsMenuDropdown.classList.toggle('hidden');
+      });
+      document.addEventListener('click', (e) => {
+        if (!toolsMenuDropdown.contains(e.target) && !btnToolsMenu.contains(e.target)) {
+          toolsMenuDropdown.classList.add('hidden');
+        }
+      });
+    }
+
+    function showVehicularToast(msg) {
+      if (toastVehicularOnly) {
+        if (toastVehicularText) toastVehicularText.textContent = msg;
+        toastVehicularOnly.classList.remove('hidden');
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+          toastVehicularOnly.classList.add('hidden');
+        }, 3800);
+      }
+    }
+
+    function setEditMode(active) {
+      isEditModeActive = active;
+      if (toolsMenuDropdown) toolsMenuDropdown.classList.add('hidden');
+
+      if (badgeEditModeStatus) {
+        badgeEditModeStatus.textContent = active ? 'Activo' : 'Inactivo';
+        badgeEditModeStatus.className = active ? 'text-[10px] text-emerald-400 font-bold' : 'text-[10px] text-slate-400 font-normal';
+      }
+
+      if (active) {
+        // Ocultar panel lateral izquierdo
+        setSidebarCollapsed(true);
+        const expandBtn = document.getElementById('btnExpandSidebar');
+        if (expandBtn) expandBtn.classList.add('hidden');
+
+        if (editModeBar) editModeBar.classList.remove('hidden');
+        map.getCanvas().style.cursor = 'crosshair';
+      } else {
+        clearSelectedBlock();
+        if (editModeBar) editModeBar.classList.add('hidden');
+        if (blockEditPanel) blockEditPanel.classList.add('hidden');
+        map.getCanvas().style.cursor = '';
+        setSidebarCollapsed(false);
+      }
+    }
+
+    if (btnOpenEditDirections) {
+      btnOpenEditDirections.addEventListener('click', () => {
+        setEditMode(!isEditModeActive);
+      });
+    }
+
+    if (btnExitEditMode) {
+      btnExitEditMode.addEventListener('click', () => {
+        if (hasPendingChanges) {
+          if (modalDiscardChanges) modalDiscardChanges.classList.remove('hidden');
+          return;
+        }
+        setEditMode(false);
+      });
+    }
+
+    // Inicializar capas de visualización del tramo en edición en MapLibre
+    function ensureEditLayers() {
+      if (!map.getSource('edit-block-source')) {
+        map.addSource('edit-block-source', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] }
+        });
+      }
+      if (!map.getLayer('edit-block-glow')) {
+        map.addLayer({
+          id: 'edit-block-glow',
+          type: 'line',
+          source: 'edit-block-source',
+          paint: {
+            'line-color': ['case', ['boolean', ['get', 'is_oneway'], false], '#f59e0b', '#10b981'],
+            'line-width': ['interpolate', ['linear'], ['zoom'], 10, 8, 16, 16],
+            'line-opacity': 0.45,
+            'line-blur': 3
+          }
+        });
+      }
+      if (!map.getLayer('edit-block-line')) {
+        map.addLayer({
+          id: 'edit-block-line',
+          type: 'line',
+          source: 'edit-block-source',
+          paint: {
+            'line-color': ['case', ['boolean', ['get', 'is_oneway'], false], '#fbbf24', '#34d399'],
+            'line-width': ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 8],
+            'line-opacity': 1.0
+          }
+        });
+      }
+      const arrowIconId = ensureOnewayArrowIcon(map, currentBasemap === 'satellite');
+      if (!map.getLayer('edit-block-arrows')) {
+        map.addLayer({
+          id: 'edit-block-arrows',
+          type: 'symbol',
+          source: 'edit-block-source',
+          filter: ['==', ['get', 'is_oneway'], true],
+          layout: {
+            'symbol-placement': 'line',
+            'symbol-spacing': ['interpolate', ['linear'], ['zoom'], 12, 60, 16, 40],
+            'icon-image': arrowIconId,
+            'icon-size': ['interpolate', ['linear'], ['zoom'], 12, 0.7, 16, 1.1],
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+            'icon-rotation-alignment': 'map',
+            'icon-keep-upright': false
+          }
+        });
+      }
+    }
+
+    function renderEditBlockVisual() {
+      if (!selectedBlockData || !selectedBlockData.coordinates) {
+        if (map.getSource('edit-block-source')) {
+          map.getSource('edit-block-source').setData({ type: 'FeatureCollection', features: [] });
+        }
+        if (markerA) { markerA.remove(); markerA = null; }
+        if (markerB) { markerB.remove(); markerB = null; }
+        return;
+      }
+
+      ensureEditLayers();
+
+      const isOneWay = currentDirectionState !== 'two-way';
+      let coords = [...selectedBlockData.coordinates];
+      if (currentDirectionState === 'reverse') {
+        coords.reverse();
+      }
+
+      const feature = {
+        type: 'Feature',
+        properties: {
+          is_oneway: isOneWay,
+          direction: currentDirectionState
+        },
+        geometry: {
+          type: 'LineString',
+          coordinates: coords
+        }
+      };
+
+      map.getSource('edit-block-source').setData({
+        type: 'FeatureCollection',
+        features: [feature]
+      });
+
+      // Crear o actualizar Marcador A (Inicio) y Marcador B (Fin)
+      const coordA = selectedBlockData.node_a;
+      const coordB = selectedBlockData.node_b;
+
+      if (!markerA) {
+        const elA = document.createElement('div');
+        elA.className = 'w-7 h-7 rounded-full bg-emerald-500 text-white font-black text-xs flex items-center justify-center border-2 border-white shadow-2xl select-none cursor-pointer';
+        elA.textContent = 'A';
+        elA.title = 'Nodo Extremo A';
+        markerA = new maplibregl.Marker({ element: elA, anchor: 'center' }).setLngLat([coordA.lon, coordA.lat]).addTo(map);
+      } else {
+        markerA.setLngLat([coordA.lon, coordA.lat]);
+      }
+
+      if (!markerB) {
+        const elB = document.createElement('div');
+        elB.className = 'w-7 h-7 rounded-full bg-amber-500 text-white font-black text-xs flex items-center justify-center border-2 border-white shadow-2xl select-none cursor-pointer';
+        elB.textContent = 'B';
+        elB.title = 'Nodo Extremo B';
+        markerB = new maplibregl.Marker({ element: elB, anchor: 'center' }).setLngLat([coordB.lon, coordB.lat]).addTo(map);
+      } else {
+        markerB.setLngLat([coordB.lon, coordB.lat]);
+      }
+    }
+
+    function updateEditPanelUI() {
+      if (!selectedBlockData) {
+        if (blockEditPanel) blockEditPanel.classList.add('hidden');
+        return;
+      }
+
+      if (blockEditPanel) blockEditPanel.classList.remove('hidden');
+      if (editStreetName) editStreetName.textContent = selectedBlockData.name || 'Sin nombre';
+      if (editStreetHighway) editStreetHighway.textContent = selectedBlockData.highway.toUpperCase();
+      if (editStreetLength) editStreetLength.textContent = `${selectedBlockData.total_length_m} m`;
+      if (editStreetSegmentsCount) editStreetSegmentsCount.textContent = `(${selectedBlockData.segment_count} segmentos hasta esquinas)`;
+
+      if (currentDirectionState === 'two-way') {
+        editDirectionLabel.innerHTML = `<span class="text-emerald-400 font-bold flex items-center gap-1"><span>Doble Vía ⇄</span> <span class="text-[10px] text-emerald-300 font-normal">(Ambos sentidos permitidos)</span></span>`;
+        btnCycleDirectionText.textContent = 'Volver Sentido Único';
+      } else if (currentDirectionState === 'forward') {
+        editDirectionLabel.innerHTML = `<span class="text-amber-400 font-bold flex items-center gap-1"><span>Sentido Único: A ➔ B</span> <span class="text-[10px] text-amber-300 font-normal">(Hacia el extremo B)</span></span>`;
+        btnCycleDirectionText.textContent = 'Invertir Sentido (B ➔ A)';
+      } else if (currentDirectionState === 'reverse') {
+        editDirectionLabel.innerHTML = `<span class="text-amber-400 font-bold flex items-center gap-1"><span>Sentido Único: B ➔ A</span> <span class="text-[10px] text-amber-300 font-normal">(Hacia el extremo A)</span></span>`;
+        btnCycleDirectionText.textContent = 'Volver Doble Vía (⇄)';
+      }
+
+      hasPendingChanges = (currentDirectionState !== originalDirectionState);
+      if (hasPendingChanges) {
+        if (editPendingWarning) editPendingWarning.classList.remove('hidden');
+        if (editActionButtons) editActionButtons.classList.remove('hidden');
+      } else {
+        if (editPendingWarning) editPendingWarning.classList.add('hidden');
+        if (editActionButtons) editActionButtons.classList.add('hidden');
+      }
+    }
+
+    function clearSelectedBlock() {
+      selectedBlockData = null;
+      originalDirectionState = null;
+      currentDirectionState = null;
+      hasPendingChanges = false;
+      renderEditBlockVisual();
+      updateEditPanelUI();
+    }
+
+    if (btnDeselectBlock) {
+      btnDeselectBlock.addEventListener('click', () => {
+        if (hasPendingChanges) {
+          if (modalDiscardChanges) modalDiscardChanges.classList.remove('hidden');
+          return;
+        }
+        clearSelectedBlock();
+      });
+    }
+
+    // Botón único para ciclar el sentido vial
+    if (btnCycleDirection) {
+      btnCycleDirection.addEventListener('click', () => {
+        if (!selectedBlockData) return;
+
+        if (originalDirectionState === 'two-way') {
+          // Ciclo: two-way -> forward -> reverse -> two-way
+          if (currentDirectionState === 'two-way') currentDirectionState = 'forward';
+          else if (currentDirectionState === 'forward') currentDirectionState = 'reverse';
+          else currentDirectionState = 'two-way';
+        } else {
+          // Si originalmente era forward (sentido único)
+          // Ciclo: forward -> reverse -> two-way -> forward
+          if (currentDirectionState === 'forward') currentDirectionState = 'reverse';
+          else if (currentDirectionState === 'reverse') currentDirectionState = 'two-way';
+          else currentDirectionState = 'forward';
+        }
+
+        renderEditBlockVisual();
+        updateEditPanelUI();
+      });
+    }
+
+    // Descartar cambios
+    if (btnDiscardChanges) {
+      btnDiscardChanges.addEventListener('click', () => {
+        if (modalDiscardChanges) modalDiscardChanges.classList.remove('hidden');
+      });
+    }
+    if (btnCancelDiscardModal) {
+      btnCancelDiscardModal.addEventListener('click', () => {
+        if (modalDiscardChanges) modalDiscardChanges.classList.add('hidden');
+      });
+    }
+    if (btnConfirmDiscardModal) {
+      btnConfirmDiscardModal.addEventListener('click', () => {
+        if (modalDiscardChanges) modalDiscardChanges.classList.add('hidden');
+        currentDirectionState = originalDirectionState;
+        renderEditBlockVisual();
+        updateEditPanelUI();
+      });
+    }
+
+    // Guardar cambios
+    if (btnSaveChanges) {
+      btnSaveChanges.addEventListener('click', () => {
+        if (!selectedBlockData) return;
+        if (saveModalStreetName) saveModalStreetName.textContent = selectedBlockData.name || 'Sin nombre';
+        if (saveModalSegmentCount) saveModalSegmentCount.textContent = `${selectedBlockData.segment_count} segmentos (${selectedBlockData.total_length_m} m)`;
+        if (saveModalGpkgName) saveModalGpkgName.textContent = gpkgSelect ? gpkgSelect.value : '';
+
+        if (saveModalDirection) {
+          if (currentDirectionState === 'two-way') {
+            saveModalDirection.innerHTML = '<span class="text-emerald-400 font-bold">Doble Sentido ⇄ (Bidireccional)</span>';
+          } else if (currentDirectionState === 'forward') {
+            saveModalDirection.innerHTML = '<span class="text-amber-400 font-bold">Sentido Único (A ➔ B)</span>';
+          } else {
+            saveModalDirection.innerHTML = '<span class="text-amber-400 font-bold">Sentido Único (B ➔ A)</span>';
+          }
+        }
+
+        if (modalSaveChanges) modalSaveChanges.classList.remove('hidden');
+      });
+    }
+    if (btnCancelSaveModal) {
+      btnCancelSaveModal.addEventListener('click', () => {
+        if (modalSaveChanges) modalSaveChanges.classList.add('hidden');
+      });
+    }
+    if (btnConfirmSaveModal) {
+      btnConfirmSaveModal.addEventListener('click', async () => {
+        if (!selectedBlockData) return;
+        const isOneWay = (currentDirectionState !== 'two-way');
+        const reverseDirection = (currentDirectionState === 'reverse' && originalDirectionState !== 'reverse') ||
+                                 (currentDirectionState === 'forward' && originalDirectionState === 'reverse');
+
+        const payload = {
+          File: gpkgSelect ? gpkgSelect.value : '',
+          Fids: selectedBlockData.fids,
+          IsOneWay: isOneWay,
+          ReverseDirection: reverseDirection
+        };
+
+        try {
+          btnConfirmSaveModal.disabled = true;
+          btnConfirmSaveModal.textContent = 'Guardando...';
+
+          const res = await fetch('/api/segments/update-direction', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (!data.ok) throw new Error(data.error || 'Error al actualizar');
+
+          // Actualizar estado local como persistido
+          originalDirectionState = currentDirectionState;
+          hasPendingChanges = false;
+          if (modalSaveChanges) modalSaveChanges.classList.add('hidden');
+          updateEditPanelUI();
+          showVehicularToast(`✅ Sentido vial guardado correctamente (${payload.Fids.length} segmentos actualizados).`);
+
+          // Refrescar mapa sin recargar la página
+          updateViewportData();
+        } catch (err) {
+          alert('Error al guardar: ' + err.message);
+        } finally {
+          btnConfirmSaveModal.disabled = false;
+          btnConfirmSaveModal.innerHTML = '<span>💾</span><span>Confirmar y Guardar</span>';
+        }
+      });
+    }
+
+    // Interceptar clics en el mapa cuando el modo edición está activo
+    async function handleSegmentEditClick(feature) {
+      if (!isEditModeActive) return false;
+
+      // Si hay cambios pendientes, bloquear selección de otro tramo
+      if (hasPendingChanges) {
+        if (editPendingWarning) {
+          editPendingWarning.classList.add('animate-bounce');
+          setTimeout(() => editPendingWarning.classList.remove('animate-bounce'), 1000);
+        }
+        showVehicularToast('⚠️ Tienes cambios pendientes en el tramo actual. Confirma o descarta antes de seleccionar otro.');
+        return true;
+      }
+
+      const fid = feature.properties.fid;
+      const file = gpkgSelect ? gpkgSelect.value : '';
+
+      try {
+        const res = await fetch(`/api/segments/block?file=${encodeURIComponent(file)}&fid=${fid}`);
+        const data = await res.json();
+
+        if (!data.ok) {
+          if (data.error === 'not_vehicular') {
+            showVehicularToast(`🚫 Vía no editable: '${data.highway}'. Solo se permite editar vías vehiculares (calles, avenidas, autopistas).`);
+          } else {
+            showVehicularToast(`Error: ${data.message || 'No se pudo cargar el tramo'}`);
+          }
+          return true;
+        }
+
+        selectedBlockData = data;
+        originalDirectionState = !data.is_oneway ? 'two-way' : 'forward';
+        currentDirectionState = originalDirectionState;
+        hasPendingChanges = false;
+
+        renderEditBlockVisual();
+        updateEditPanelUI();
+
+        // Centrar suavemente en el tramo seleccionado
+        if (data.coordinates && data.coordinates.length > 0) {
+          let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
+          data.coordinates.forEach(c => {
+            if (c[0] < minLon) minLon = c[0];
+            if (c[0] > maxLon) maxLon = c[0];
+            if (c[1] < minLat) minLat = c[1];
+            if (c[1] > maxLat) maxLat = c[1];
+          });
+          map.fitBounds([[minLon, minLat], [maxLon, maxLat]], {
+            padding: 90,
+            maxZoom: 18,
+            duration: 600
+          });
+        }
+
+        return true;
+      } catch (err) {
+        showVehicularToast(`Error al consultar el tramo: ${err.message}`);
+        return true;
+      }
     }
 
     btnClearLogs.addEventListener('click', () => {

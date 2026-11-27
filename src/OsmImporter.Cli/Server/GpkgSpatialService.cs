@@ -430,4 +430,318 @@ public sealed class GpkgSpatialService
       features
     };
   }
+
+  public static readonly HashSet<string> VehicularHighways = new(StringComparer.OrdinalIgnoreCase)
+  {
+    "motorway", "motorway_link", "trunk", "trunk_link",
+    "primary", "primary_link", "secondary", "secondary_link",
+    "tertiary", "tertiary_link", "residential", "living_street",
+    "unclassified", "service"
+  };
+
+  private record StreetBlockSegment(
+    long Fid,
+    long OsmId,
+    string? Name,
+    string Highway,
+    bool IsOneWay,
+    long FromNodeKey,
+    long ToNodeKey,
+    long FromNodeFid,
+    long ToNodeFid,
+    double LengthM,
+    double[] Coords);
+
+  public static object GetStreetBlock(string gpkgPath, long seedFid)
+  {
+    if (!File.Exists(gpkgPath))
+      return new { ok = false, error = "file_not_found", message = "Archivo no encontrado" };
+
+    using var conn = new SqliteConnection($"Data Source={gpkgPath};Mode=ReadOnly;Pooling=False");
+    conn.Open();
+
+    // 1. Obtener segmento semilla
+    StreetBlockSegment? seed = null;
+    using (var cmd = conn.CreateCommand())
+    {
+      cmd.CommandText = """
+        SELECT fid, osm_id, name, highway, is_oneway, from_node_key, to_node_key, from_node_fid, to_node_fid, length_m, geom
+        FROM road_segments
+        WHERE fid = $fid
+        """;
+      cmd.Parameters.AddWithValue("$fid", seedFid);
+      using var r = cmd.ExecuteReader();
+      if (r.Read())
+      {
+        var blob = (byte[])r[10];
+        var coords = GpkgGeometry.ReadCoordinates(blob);
+        seed = new StreetBlockSegment(
+          r.GetInt64(0),
+          r.GetInt64(1),
+          r.IsDBNull(2) ? null : r.GetString(2),
+          r.GetString(3),
+          r.GetInt64(4) != 0,
+          r.GetInt64(5),
+          r.GetInt64(6),
+          r.GetInt64(7),
+          r.GetInt64(8),
+          r.GetDouble(9),
+          coords);
+      }
+    }
+
+    if (seed == null)
+      return new { ok = false, error = "segment_not_found", message = "Segmento no encontrado" };
+
+    if (!VehicularHighways.Contains(seed.Highway))
+      return new { ok = false, error = "not_vehicular", highway = seed.Highway, message = $"La vía seleccionada es de tipo '{seed.Highway}' (no vehicular). Solo se permite editar vías vehiculares." };
+
+    // 2. Función para obtener valencia de un nodo
+    int GetNodeValence(long nodeKey)
+    {
+      using var cmd = conn.CreateCommand();
+      cmd.CommandText = "SELECT valence FROM road_nodes WHERE node_key = $k LIMIT 1";
+      cmd.Parameters.AddWithValue("$k", nodeKey);
+      var obj = cmd.ExecuteScalar();
+      return obj != null && obj != DBNull.Value ? Convert.ToInt32(obj, CultureInfo.InvariantCulture) : 2;
+    }
+
+    // 3. Función para buscar segmento contiguo del mismo osm_id
+    StreetBlockSegment? FindAdjacent(long nodeKey, HashSet<long> visitedFids)
+    {
+      using var cmd = conn.CreateCommand();
+      cmd.CommandText = """
+        SELECT fid, osm_id, name, highway, is_oneway, from_node_key, to_node_key, from_node_fid, to_node_fid, length_m, geom
+        FROM road_segments
+        WHERE (from_node_key = $k OR to_node_key = $k) AND osm_id = $osmId
+        """;
+      cmd.Parameters.AddWithValue("$k", nodeKey);
+      cmd.Parameters.AddWithValue("$osmId", seed.OsmId);
+      using var r = cmd.ExecuteReader();
+      while (r.Read())
+      {
+        var fid = r.GetInt64(0);
+        if (visitedFids.Contains(fid)) continue;
+
+        var blob = (byte[])r[10];
+        var coords = GpkgGeometry.ReadCoordinates(blob);
+        return new StreetBlockSegment(
+          fid,
+          r.GetInt64(1),
+          r.IsDBNull(2) ? null : r.GetString(2),
+          r.GetString(3),
+          r.GetInt64(4) != 0,
+          r.GetInt64(5),
+          r.GetInt64(6),
+          r.GetInt64(7),
+          r.GetInt64(8),
+          r.GetDouble(9),
+          coords);
+      }
+      return null;
+    }
+
+    // 4. Recorrer hacia atrás desde seed.FromNodeKey
+    var backwardList = new List<StreetBlockSegment>();
+    var visited = new HashSet<long> { seed.Fid };
+    var currNode = seed.FromNodeKey;
+
+    while (true)
+    {
+      var val = GetNodeValence(currNode);
+      if (val != 2) break;
+
+      var adj = FindAdjacent(currNode, visited);
+      if (adj == null) break;
+
+      visited.Add(adj.Fid);
+      backwardList.Add(adj);
+      currNode = adj.FromNodeKey == currNode ? adj.ToNodeKey : adj.FromNodeKey;
+    }
+
+    // 5. Recorrer hacia adelante desde seed.ToNodeKey
+    var forwardList = new List<StreetBlockSegment>();
+    currNode = seed.ToNodeKey;
+
+    while (true)
+    {
+      var val = GetNodeValence(currNode);
+      if (val != 2) break;
+
+      var adj = FindAdjacent(currNode, visited);
+      if (adj == null) break;
+
+      visited.Add(adj.Fid);
+      forwardList.Add(adj);
+      currNode = adj.FromNodeKey == currNode ? adj.ToNodeKey : adj.FromNodeKey;
+    }
+
+    backwardList.Reverse();
+    var allSegments = new List<StreetBlockSegment>(backwardList.Count + 1 + forwardList.Count);
+    allSegments.AddRange(backwardList);
+    allSegments.Add(seed);
+    allSegments.AddRange(forwardList);
+
+    // Encadenar coordenadas de A a B
+    var chainCoords = new List<double[]>();
+    long startNodeKey;
+    long endNodeKey;
+
+    if (allSegments.Count == 1)
+    {
+      var s = allSegments[0];
+      startNodeKey = s.FromNodeKey;
+      endNodeKey = s.ToNodeKey;
+      for (int i = 0; i < s.Coords.Length; i += 2)
+        chainCoords.Add([Math.Round(s.Coords[i], 6), Math.Round(s.Coords[i + 1], 6)]);
+    }
+    else
+    {
+      var s0 = allSegments[0];
+      var s1 = allSegments[1];
+      bool s0FromConnects = (s0.FromNodeKey == s1.FromNodeKey || s0.FromNodeKey == s1.ToNodeKey);
+
+      long runningNode;
+      if (s0FromConnects)
+      {
+        startNodeKey = s0.ToNodeKey;
+        runningNode = s0.FromNodeKey;
+        for (int i = s0.Coords.Length - 2; i >= 0; i -= 2)
+          chainCoords.Add([Math.Round(s0.Coords[i], 6), Math.Round(s0.Coords[i + 1], 6)]);
+      }
+      else
+      {
+        startNodeKey = s0.FromNodeKey;
+        runningNode = s0.ToNodeKey;
+        for (int i = 0; i < s0.Coords.Length; i += 2)
+          chainCoords.Add([Math.Round(s0.Coords[i], 6), Math.Round(s0.Coords[i + 1], 6)]);
+      }
+
+      for (int k = 1; k < allSegments.Count; k++)
+      {
+        var sk = allSegments[k];
+        bool forward = (sk.FromNodeKey == runningNode);
+        if (forward)
+        {
+          for (int i = 2; i < sk.Coords.Length; i += 2)
+            chainCoords.Add([Math.Round(sk.Coords[i], 6), Math.Round(sk.Coords[i + 1], 6)]);
+          runningNode = sk.ToNodeKey;
+        }
+        else
+        {
+          for (int i = sk.Coords.Length - 4; i >= 0; i -= 2)
+            chainCoords.Add([Math.Round(sk.Coords[i], 6), Math.Round(sk.Coords[i + 1], 6)]);
+          runningNode = sk.FromNodeKey;
+        }
+      }
+      endNodeKey = runningNode;
+    }
+
+    var nodeALon = chainCoords[0][0];
+    var nodeALat = chainCoords[0][1];
+    var nodeBLon = chainCoords[^1][0];
+    var nodeBLat = chainCoords[^1][1];
+
+    var totalLen = allSegments.Sum(s => s.LengthM);
+    var isOneWay = allSegments.All(s => s.IsOneWay);
+
+    return new
+    {
+      ok = true,
+      name = seed.Name ?? "Sin nombre",
+      highway = seed.Highway,
+      is_oneway = isOneWay,
+      osm_id = seed.OsmId,
+      fids = allSegments.Select(s => s.Fid).ToList(),
+      total_length_m = Math.Round(totalLen, 1),
+      segment_count = allSegments.Count,
+      node_a = new { key = startNodeKey, lon = nodeALon, lat = nodeALat },
+      node_b = new { key = endNodeKey, lon = nodeBLon, lat = nodeBLat },
+      coordinates = chainCoords
+    };
+  }
+
+  public static object UpdateSegmentDirection(
+    string gpkgPath,
+    List<long> fids,
+    bool isOneWay,
+    bool reverseDirection)
+  {
+    if (!File.Exists(gpkgPath))
+      return new { ok = false, error = "Archivo no encontrado" };
+
+    if (fids == null || fids.Count == 0)
+      return new { ok = false, error = "No se especificaron segmentos para actualizar" };
+
+    using var conn = new SqliteConnection($"Data Source={gpkgPath};Mode=ReadWrite;Pooling=False");
+    conn.Open();
+    using var tx = conn.BeginTransaction();
+
+    try
+    {
+      foreach (var fid in fids)
+      {
+        if (reverseDirection)
+        {
+          byte[] blob;
+          long fromKey, toKey, fromFid, toFid;
+          using (var sel = conn.CreateCommand())
+          {
+            sel.Transaction = tx;
+            sel.CommandText = "SELECT geom, from_node_key, to_node_key, from_node_fid, to_node_fid FROM road_segments WHERE fid = $fid";
+            sel.Parameters.AddWithValue("$fid", fid);
+            using var r = sel.ExecuteReader();
+            if (!r.Read()) continue;
+            blob = (byte[])r[0];
+            fromKey = r.GetInt64(1);
+            toKey = r.GetInt64(2);
+            fromFid = r.GetInt64(3);
+            toFid = r.GetInt64(4);
+          }
+
+          var reversedGeom = GpkgGeometry.ReverseLineString(blob);
+
+          using (var upd = conn.CreateCommand())
+          {
+            upd.Transaction = tx;
+            upd.CommandText = """
+              UPDATE road_segments
+              SET is_oneway = $ow,
+                  geom = $geom,
+                  from_node_key = $toKey,
+                  to_node_key = $fromKey,
+                  from_node_fid = $toFid,
+                  to_node_fid = $fromFid
+              WHERE fid = $fid
+              """;
+            upd.Parameters.AddWithValue("$ow", isOneWay ? 1 : 0);
+            upd.Parameters.AddWithValue("$geom", reversedGeom);
+            upd.Parameters.AddWithValue("$toKey", toKey);
+            upd.Parameters.AddWithValue("$fromKey", fromKey);
+            upd.Parameters.AddWithValue("$toFid", toFid);
+            upd.Parameters.AddWithValue("$fromFid", fromFid);
+            upd.Parameters.AddWithValue("$fid", fid);
+            upd.ExecuteNonQuery();
+          }
+        }
+        else
+        {
+          using var upd = conn.CreateCommand();
+          upd.Transaction = tx;
+          upd.CommandText = "UPDATE road_segments SET is_oneway = $ow WHERE fid = $fid";
+          upd.Parameters.AddWithValue("$ow", isOneWay ? 1 : 0);
+          upd.Parameters.AddWithValue("$fid", fid);
+          upd.ExecuteNonQuery();
+        }
+      }
+
+      tx.Commit();
+      return new { ok = true, updated_count = fids.Count };
+    }
+    catch (Exception ex)
+    {
+      tx.Rollback();
+      return new { ok = false, error = ex.Message };
+    }
+  }
 }

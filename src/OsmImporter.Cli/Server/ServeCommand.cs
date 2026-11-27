@@ -16,6 +16,7 @@ namespace OsmImporter.Cli.Server;
 
 public record DownloadApiRequest(string? Region, bool Force = false);
 public record BboxDto(double MinLon, double MinLat, double MaxLon, double MaxLat);
+public record UpdateDirectionApiRequest(string? File, List<long>? Fids, bool IsOneWay, bool ReverseDirection);
 public record BuildApiRequest(
   string? Pbf,
   string? Profile,
@@ -214,6 +215,34 @@ public static class ServeCommand
       return Results.Ok(geoJson);
     });
 
+    // Obtener tramo completo hasta esquinas para edición
+    app.MapGet("/api/segments/block", (string? file, long? fid) =>
+    {
+      var path = ResolveGpkgPath(file);
+      if (string.IsNullOrEmpty(path) || !File.Exists(path))
+        return Results.NotFound(new { ok = false, error = "Archivo no encontrado" });
+
+      if (fid == null || fid <= 0)
+        return Results.BadRequest(new { ok = false, error = "Se requiere fid del segmento" });
+
+      var block = GpkgSpatialService.GetStreetBlock(path, fid.Value);
+      return Results.Ok(block);
+    });
+
+    // Actualizar sentido de tramo en GeoPackage
+    app.MapPost("/api/segments/update-direction", (UpdateDirectionApiRequest req) =>
+    {
+      var path = ResolveGpkgPath(req.File);
+      if (string.IsNullOrEmpty(path) || !File.Exists(path))
+        return Results.NotFound(new { ok = false, error = "Archivo no encontrado" });
+
+      if (req.Fids == null || req.Fids.Count == 0)
+        return Results.BadRequest(new { ok = false, error = "Se requiere al menos un fid" });
+
+      var result = GpkgSpatialService.UpdateSegmentDirection(path, req.Fids, req.IsOneWay, req.ReverseDirection);
+      return Results.Ok(result);
+    });
+
     // Geofabrik: Buscar regiones
     app.MapGet("/api/regions", async (string? search, CancellationToken cancellationToken) =>
     {
@@ -252,7 +281,8 @@ public static class ServeCommand
     // Abrir carpeta en el Explorador de Windows
     app.MapPost("/api/open-folder", (string? folder) =>
     {
-      var target = folder == "output" ? outputDir : downloadsDir;
+      var userDownloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+      var target = folder == "output" ? outputDir : (folder == "user-downloads" ? userDownloads : downloadsDir);
       if (!Directory.Exists(target)) Directory.CreateDirectory(target);
       try
       {

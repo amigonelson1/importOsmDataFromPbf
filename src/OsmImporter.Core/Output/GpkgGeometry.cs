@@ -40,6 +40,48 @@ public static class GpkgGeometry
     return buf;
   }
 
+  public static byte[] LineString(double[] coords)
+  {
+    if (coords == null || coords.Length < 4) throw new ArgumentException("Al menos 2 puntos requeridos");
+    var count = coords.Length / 2;
+    var minX = double.MaxValue; var maxX = double.MinValue;
+    var minY = double.MaxValue; var maxY = double.MinValue;
+    for (int i = 0; i < coords.Length; i += 2)
+    {
+      var x = coords[i]; var y = coords[i + 1];
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
+    var buf = new byte[8 + 32 + 9 + count * 16];
+    WriteHeader(buf, envelope: true);
+    var p = 8;
+    BinaryPrimitives.WriteDoubleLittleEndian(buf.AsSpan(p), minX); p += 8;
+    BinaryPrimitives.WriteDoubleLittleEndian(buf.AsSpan(p), maxX); p += 8;
+    BinaryPrimitives.WriteDoubleLittleEndian(buf.AsSpan(p), minY); p += 8;
+    BinaryPrimitives.WriteDoubleLittleEndian(buf.AsSpan(p), maxY); p += 8;
+    buf[p++] = 1; // little endian
+    BinaryPrimitives.WriteUInt32LittleEndian(buf.AsSpan(p), 2); p += 4; // wkbLineString
+    BinaryPrimitives.WriteUInt32LittleEndian(buf.AsSpan(p), (uint)count); p += 4;
+    for (int i = 0; i < coords.Length; i += 2)
+    {
+      BinaryPrimitives.WriteDoubleLittleEndian(buf.AsSpan(p), coords[i]); p += 8;
+      BinaryPrimitives.WriteDoubleLittleEndian(buf.AsSpan(p), coords[i + 1]); p += 8;
+    }
+    return buf;
+  }
+
+  public static byte[] ReverseLineString(byte[] blob)
+  {
+    var coords = ReadCoordinates(blob);
+    var rev = new double[coords.Length];
+    for (int i = 0, j = coords.Length - 2; i < coords.Length; i += 2, j -= 2)
+    {
+      rev[i] = coords[j];
+      rev[i + 1] = coords[j + 1];
+    }
+    return LineString(rev);
+  }
+
   /// <summary>Lee una geometría Point/LineString de 2 puntos escrita por esta clase (o por GDAL).</summary>
   public static double[] ReadCoordinates(byte[] blob)
   {

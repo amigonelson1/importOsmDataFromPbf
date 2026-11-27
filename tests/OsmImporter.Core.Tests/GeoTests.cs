@@ -184,4 +184,25 @@ public class GeoTests
 
     Assert.Single(WaySplitter.Split(line, 0));               // 0 = sin partir
   }
+
+  [Fact]
+  public void GpkgGeometry_LineString_and_ReverseLineString_work_correctly()
+  {
+    double[] coords = [-73.1234, 7.1234, -73.1235, 7.1236, -73.1240, 7.1245];
+    var blob = OsmImporter.Core.Output.GpkgGeometry.LineString(coords);
+    var read = OsmImporter.Core.Output.GpkgGeometry.ReadCoordinates(blob);
+
+    Assert.Equal(coords.Length, read.Length);
+    for (int i = 0; i < coords.Length; i++)
+      Assert.Equal(coords[i], read[i], 1e-6);
+
+    var revBlob = OsmImporter.Core.Output.GpkgGeometry.ReverseLineString(blob);
+    var revRead = OsmImporter.Core.Output.GpkgGeometry.ReadCoordinates(revBlob);
+
+    Assert.Equal(coords.Length, revRead.Length);
+    Assert.Equal(coords[4], revRead[0], 1e-6);
+    Assert.Equal(coords[5], revRead[1], 1e-6);
+    Assert.Equal(coords[0], revRead[4], 1e-6);
+    Assert.Equal(coords[1], revRead[5], 1e-6);
+  }
 }
